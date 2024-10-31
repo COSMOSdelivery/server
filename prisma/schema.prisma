@@ -4,11 +4,87 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+generator prismaClassGenerator {
+  provider = "prisma-class-generator"
+  output   = "../src/generated/prisma-client"
+  dryRun   = false
 }
+
+model Utilisateur {
+  id Int @id @default(autoincrement())
+  nom String
+  prenom String
+  nomShop String  
+  email String @unique
+  gouvernerat String
+  ville String
+  localite String
+  codePostal String
+  addresse String
+  telephone1 String
+  telephone2 String
+  codeTVA String
+  cin String @unique
+  role Role
+  dateInscription DateTime 
+  derniereMiseAJour DateTime @updatedAt 
+}
+
+enum Role{
+  UTILISATEUR
+  ADMIN 
+  LIVREUR
+}
+
+// model Command{
+//   id Int @id @default(autoincrement())
+//   date DateTime
+//   status String
+// }
+
+// model Colis{
+//   id Int @id @default(autoincrement())
+//   weight Float
+//   dimensions Float
+//   status String //it could be enumeration
+// }
+
+// model Retour{
+//   id Int @id @default(autoincrement())
+//   reason String
+//   status String
+// }
+// model Manifest{
+//   id Int @id @default(autoincrement())
+//   creationDate DateTime
+// }
+
+// model Payment{
+//   id Int @id @default(autoincrement())
+//   amount Float
+//   date DateTime
+//   paymentMethod String // could be enumeration
+// }
+
+
+
+
+
+
+
+
+
+
