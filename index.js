@@ -2,7 +2,7 @@ const express = require("express");
 require('dotenv/config')
 const bodyParser = require('body-parser')
 const morgan = require('morgan')
-const authJwt = require("./middleware/expressjwt");
+const authJwt = require("./src/middleware/expressjwt");
 const usersRouter = require("./src/models/user")
 
 const app = express()

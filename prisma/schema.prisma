@@ -23,6 +23,11 @@ generator prismaClassGenerator {
   dryRun   = false
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model Utilisateur {
   id Int @id @default(autoincrement())
   nom String
@@ -30,6 +35,7 @@ model Utilisateur {
   nomShop String  
   email String @unique
   gouvernerat String
+  password String
   ville String
   localite String
   codePostal String
