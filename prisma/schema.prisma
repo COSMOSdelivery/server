@@ -49,9 +49,9 @@ model Utilisateur {
   derniereMiseAJour DateTime @updatedAt 
 }
 
-enum Role{
+enum Role {
   UTILISATEUR
-  ADMIN 
+  ADMIN
   LIVREUR
 }
 
@@ -84,13 +84,3 @@ enum Role{
 //   date DateTime
 //   paymentMethod String // could be enumeration
 // }
-
-
-
-
-
-
-
-
-
-
