@@ -1,52 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// generator client {
-//   provider = "prisma-client-js"
-// }
-
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-// }
-
 generator client {
   provider = "prisma-client-js"
-}
-
-generator prismaClassGenerator {
-  provider = "prisma-class-generator"
-  output   = "../src/generated/prisma-client"
-  dryRun   = false
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-model Utilisateur {
-  id Int @id @default(autoincrement())
-  nom String
-  prenom String
-  nomShop String  
-  email String @unique
-  gouvernerat String
-  password String
-  ville String
-  localite String
-  codePostal String
-  addresse String
-  telephone1 String
-  telephone2 String
-  codeTVA String
-  cin String @unique
-  role Role
-  dateInscription DateTime 
-  derniereMiseAJour DateTime @updatedAt 
 }
 
 enum Role {
@@ -55,32 +13,70 @@ enum Role {
   LIVREUR
 }
 
-// model Command{
-//   id Int @id @default(autoincrement())
-//   date DateTime
-//   status String
-// }
+enum ModePaiement {
+  ESPECE
+  CHEQUE
+  ESPECE_ou_CHEQUE
+}
 
-// model Colis{
-//   id Int @id @default(autoincrement())
-//   weight Float
-//   dimensions Float
-//   status String //it could be enumeration
-// }
+enum EtatCommande {
+  EN_ATTENTE
+  AU_DEPOT
+  EN_COURS
+  A_VERIFIER
+  LIVRES
+  LIVRES_PAYES
+  ECHANGE
+  REMBOURSES
+  RETOUR_DEFINITIF
+  RETOUR_INTER_AGENCE
+  RETOUR_EXPEDITEURS
+  RETOUR_RECU_PAYES
+}
 
-// model Retour{
-//   id Int @id @default(autoincrement())
-//   reason String
-//   status String
-// }
-// model Manifest{
-//   id Int @id @default(autoincrement())
-//   creationDate DateTime
-// }
+model Utilisateur {
+  id                Int        @id @default(autoincrement())
+  nom               String
+  prenom            String
+  nomShop           String?
+  email             String     @unique
+  gouvernorat       String?
+  password          String
+  ville             String?
+  localite          String?
+  codePostal        String?
+  adresse           String?
+  telephone1        String
+  telephone2        String?
+  codeTVA           String?
+  cin               String     @unique
+  role              Role
+  dateInscription   DateTime   @default(now())
+  derniereMiseAJour DateTime   @updatedAt
+  Commande          Commande[]
+}
 
-// model Payment{
-//   id Int @id @default(autoincrement())
-//   amount Float
-//   date DateTime
-//   paymentMethod String // could be enumeration
-// }
+model Commande {
+  code_a_barre           Int          @id @default(autoincrement())
+  nom_Prenom_prioritaire String
+  gouvernorat            String
+  ville                  String
+  localite               String
+  codePostal             String
+  adresse                String
+  telephone1             String
+  telephone2             String?
+  designation            String
+  prix                   Float
+  nb_article             Int
+  nb_colis               Int
+  etat                   EtatCommande
+  mode_paiement          ModePaiement
+  possible_ouvrir        Boolean
+  possible_echange       Boolean
+  remarque               String?
+  dateAjout              DateTime     @default(now())
+  derniereMiseAJour      DateTime     @updatedAt
+  id_client              Int
+  utilisateur            Utilisateur  @relation(fields: [id_client], references: [id])
+}
