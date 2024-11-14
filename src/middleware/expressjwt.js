@@ -9,14 +9,13 @@ function authJwt() {
         isRevoked: isRevoked
     }).unless({
         path: [
-            `${api}/users/login`,
-            `${api}/users/creatAccount`,
+            `${api}/users/login`
         ]
     })
 }
 
 async function isRevoked(req, token){
-  if(!token.payload.isAdmin) {
+  if(token.payload.isAdmin) {
      return true;
   }
 }

@@ -35,29 +35,53 @@ enum EtatCommande {
 }
 
 model Utilisateur {
-  id                Int        @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   nom               String
   prenom            String
-  nomShop           String?
-  email             String     @unique
-  gouvernorat       String?
+  email             String   @unique
   password          String
-  ville             String?
-  localite          String?
-  codePostal        String?
-  adresse           String?
   telephone1        String
   telephone2        String?
-  codeTVA           String?
-  cin               String     @unique
+  codeTVA           String
+  cin               String   @unique
   role              Role
-  dateInscription   DateTime   @default(now())
-  derniereMiseAJour DateTime   @updatedAt
-  Commande          Commande[]
+  dateInscription   DateTime @default(now())
+  derniereMiseAJour DateTime @updatedAt
+  admin             Admin?
+  client            Client?
+  livreur           Livreur?
+}
+
+model Admin {
+  idAdmin     Int         @id @default(autoincrement())
+  utilisateur Utilisateur @relation(fields: [idAdmin], references: [id], onDelete: Cascade)
+}
+
+model Client {
+  idClient    Int         @id @default(autoincrement())
+  utilisateur Utilisateur @relation(fields: [idClient], references: [id], onDelete: Cascade)
+  nomShop     String
+  gouvernorat String
+  ville       String
+  localite    String
+  codePostal  String
+  adresse     String
+  Commandes   Commande[] // Relation avec plusieurs commandes
+}
+
+model Livreur {
+  idLivreur   Int                  @id @default(autoincrement())
+  utilisateur Utilisateur          @relation(fields: [idLivreur], references: [id], onDelete: Cascade)
+  gouvernorat String
+  ville       String
+  localite    String
+  codePostal  String
+  adresse     String
+  Historique  HistoriqueCommande[] // Relation avec l'historique des commandes
 }
 
 model Commande {
-  code_a_barre           Int          @id @default(autoincrement())
+  code_a_barre           Int                  @id @default(autoincrement())
   nom_Prenom_prioritaire String
   gouvernorat            String
   ville                  String
@@ -75,8 +99,22 @@ model Commande {
   possible_ouvrir        Boolean
   possible_echange       Boolean
   remarque               String?
-  dateAjout              DateTime     @default(now())
-  derniereMiseAJour      DateTime     @updatedAt
+  dateAjout              DateTime             @default(now())
+  derniereMiseAJour      DateTime             @updatedAt
   id_client              Int
-  utilisateur            Utilisateur  @relation(fields: [id_client], references: [id])
+  client                 Client               @relation(fields: [id_client], references: [idClient])
+  Historique             HistoriqueCommande[] // Relation avec l'historique des commandes
+}
+
+model HistoriqueCommande {
+  id          Int          @id @default(autoincrement())
+  date        DateTime     @default(now())
+  etat        EtatCommande // État à ce moment de l'historique
+  commentaire String?
+  id_commande Int
+  id_livreur  Int
+  commande    Commande     @relation(fields: [id_commande], references: [code_a_barre], onDelete: Cascade)
+  livreur     Livreur      @relation(fields: [id_livreur], references: [idLivreur], onDelete: Cascade)
+
+  @@unique([id_commande, id_livreur, date]) // Permet de tracer les changements d'état avec timestamp
 }
