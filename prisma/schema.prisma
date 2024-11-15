@@ -8,7 +8,7 @@ datasource db {
 }
 
 enum Role {
-  UTILISATEUR
+  CLIENT
   ADMIN
   LIVREUR
 }

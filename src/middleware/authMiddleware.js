@@ -20,7 +20,7 @@ const verifyAdmin = (req, res, next) => {
     }
 };
 
-// Middleware pour vérifier si l'utilisateur est un administrateur
+// Middleware pour vérifier si l'utilisateur est connecter
 const verifyLogin = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1]; // Extract the token from the Authorization header
 

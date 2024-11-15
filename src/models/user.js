@@ -19,9 +19,7 @@ router.post('/login', async (req, res) => {
 
     console.log({
       email: req.body.email,
-    // password: bcrypt.hashSync(req.body.password, 10)
-        password: bcrypt.hashSync("kharroubi123", 10)
-
+      password: bcrypt.hashSync(req.body.password, 10)
     })
 
     const secret = process.env.JWTSECRET;

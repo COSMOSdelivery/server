@@ -16,7 +16,7 @@ const api = process.env.API_URL
 
 app.use(bodyParser.json())
 app.use(morgan('tiny'))
-app.use(authJwt())
+//app.use(authJwt())
 
 //ROUTES 
 app.use(`${api}/users`,usersRouter)
