@@ -1,71 +1,82 @@
 // Import necessary modules
-const { verifyAdmin, verifyLogin } = require('../middleware/authMiddleware'); // Importer le middleware
-const express = require('express');
+const { verifyAdmin, verifyLogin } = require("../middleware/authMiddleware"); // Importer le middleware
+const express = require("express");
 const router = express.Router();
-const bcrypt = require('bcrypt'); // For password hashing and comparison
-const jwt = require('jsonwebtoken'); // For generating JSON Web Tokens
-const { PrismaClient, Prisma } = require('@prisma/client'); // Prisma ORM client
+const bcrypt = require("bcrypt"); // For password hashing and comparison
+const jwt = require("jsonwebtoken"); // For generating JSON Web Tokens
+const { PrismaClient, Prisma } = require("@prisma/client"); // Prisma ORM client
 
 const prisma = new PrismaClient();
 //login
-router.post('/login', async (req, res) => {
-   try{
-       const { email, password } = req.body;
+router.post("/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-
-    const user = await prisma.utilisateur.findUnique({
-        where: {email:email}
-    });
-
-    console.log({
-      email: req.body.email,
-      password: bcrypt.hashSync(req.body.password, 10)
-    })
-
-    const secret = process.env.JWTSECRET;
-    if (!user) {
-        return res.status(400).send({msg:"Utilisateur non trouvé"});
-    }
-
-    // Compare provided password with hashed password in database
-    if (bcrypt.compareSync(password, user.password)) {
-        // Generate a JWT token if password is correct
-        const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role
-            },
-            secret,                 // Secret key for signing the token
-            { expiresIn: '1d' }     // Token expiration set to 1 day
-        );
-
-        // Send response with user email and generated token
-        return res.status(200).send({
-          nom:user.nom,
-          prenom:user.prenom,
-          email: user.email,
-          role:user.role, //used to display the corresponding interface in the frontend
-          token: token
+        const user = await prisma.utilisateur.findUnique({
+            where: { email: email },
         });
-    } else {
-        // Password is incorrect
-        return res.status(400).send({msg:"Mot de passe incorrect!"});
+
+        console.log({
+            email: req.body.email,
+            password: bcrypt.hashSync(req.body.password, 10),
+        });
+
+        const secret = process.env.JWTSECRET;
+        if (!user) {
+            return res.status(400).send({ msg: "Utilisateur non trouvé" });
+        }
+
+        // Compare provided password with hashed password in database
+        if (bcrypt.compareSync(password, user.password)) {
+            // Generate a JWT token if password is correct
+            const token = jwt.sign(
+                {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                },
+                secret, // Secret key for signing the token
+                { expiresIn: "1d" } // Token expiration set to 1 day
+            );
+
+            // Send response with user email and generated token
+            return res.status(200).send({
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                role: user.role, //used to display the corresponding interface in the frontend
+                token: token,
+            });
+        } else {
+            // Password is incorrect
+            return res.status(400).send({ msg: "Mot de passe incorrect!" });
+        }
+    } catch (error) {
+        console.error("Erreur lors de la connexion:", error);
+        res.status(500).send({ msg: "Erreur du serveur" });
     }
-   } catch (error) {
-       console.error('Erreur lors de la connexion:', error);
-       res.status(500).send({msg:"Erreur du serveur"});
-   }
 });
 
 //admin can creat user account
-router.post('/creatAccount',verifyAdmin,  async (req, res) => {
+router.post("/creatAccount", verifyAdmin, async (req, res) => {
     // Hash the password before saving it to the database
     try {
-        const hashedPassword = bcrypt.hashSync(req.body.password, 10)
+        const hashedPassword = bcrypt.hashSync(req.body.password, 10);
         const {
-            nom, prenom, email, gouvernorat, ville, localite, codePostal, adresse,
-            telephone1, telephone2, codeTVA, cin, role, nomShop
+            nom,
+            prenom,
+            email,
+            gouvernorat,
+            ville,
+            localite,
+            codePostal,
+            adresse,
+            telephone1,
+            telephone2,
+            codeTVA,
+            cin,
+            role,
+            nomShop,
         } = req.body;
         const user = await prisma.utilisateur.create({
             data: {
@@ -77,12 +88,12 @@ router.post('/creatAccount',verifyAdmin,  async (req, res) => {
                 telephone2,
                 codeTVA,
                 cin,
-                role
-            }
+                role,
+            },
         });
 
         // Check the role and create associated records
-        if (role === 'CLIENT') {
+        if (role === "CLIENT") {
             await prisma.client.create({
                 data: {
                     idClient: user.id,
@@ -91,10 +102,10 @@ router.post('/creatAccount',verifyAdmin,  async (req, res) => {
                     ville,
                     localite,
                     codePostal,
-                    adresse
-                }
+                    adresse,
+                },
             });
-        } else if (role === 'LIVREUR') {
+        } else if (role === "LIVREUR") {
             await prisma.livreur.create({
                 data: {
                     idLivreur: user.id,
@@ -102,14 +113,14 @@ router.post('/creatAccount',verifyAdmin,  async (req, res) => {
                     ville,
                     localite,
                     codePostal,
-                    adresse
-                }
+                    adresse,
+                },
             });
-        } else if (role === 'ADMIN') {
+        } else if (role === "ADMIN") {
             await prisma.admin.create({
                 data: {
-                    idAdmin: user.id
-                }
+                    idAdmin: user.id,
+                },
             });
         } else {
             return res.status(400).send({ msg: "Invalid role specified!" });
@@ -121,94 +132,239 @@ router.post('/creatAccount',verifyAdmin,  async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role
-            }
+                role: user.role,
+            },
         });
     } catch (error) {
-        console.error('Error creating account:', error);
+        console.error("Error creating account:", error);
         res.status(400).send({ msg: "The user cannot be created!" });
     }
-})
-
+});
 
 //admin can delete user account
-router.delete('/deleteUser/:id', verifyAdmin, async (req, res) => {
+router.delete("/deleteUser/:id", verifyAdmin, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const user = await prisma.utilisateur.findUnique({
-            where: { id: userId }
+            where: { id: userId },
         });
         if (!user) {
             return res.status(404).send({ msg: "Utilisateur non trouvé" });
         }
         // Delete associated records based on the user's role
-        if (user.role === 'CLIENT') {
+        if (user.role === "CLIENT") {
             await prisma.client.deleteMany({
-                where: { idClient: userId }
+                where: { idClient: userId },
             });
-        } else if (user.role === 'LIVREUR') {
+        } else if (user.role === "LIVREUR") {
             await prisma.livreur.deleteMany({
-                where: { idLivreur: userId }
+                where: { idLivreur: userId },
             });
-        } else if (user.role === 'ADMIN') {
+        } else if (user.role === "ADMIN") {
             await prisma.admin.deleteMany({
-                where: { idAdmin: userId }
+                where: { idAdmin: userId },
             });
         }
         // Delete the user from the Utilisateur table
         await prisma.utilisateur.delete({
-            where: { id: userId }
+            where: { id: userId },
         });
         res.status(200).send({ msg: "Utilisateur supprimé avec succès" });
     } catch (error) {
-        console.error('Erreur lors de la suppression de l\'utilisateur:', error);
-        res.status(500).send({ msg: "Erreur du serveur lors de la suppression de l'utilisateur" });
+        console.error("Erreur lors de la suppression de l'utilisateur:", error);
+        res.status(500).send({
+            msg: "Erreur du serveur lors de la suppression de l'utilisateur",
+        });
     }
 });
 
 //user can change password
-router.put('/changePassword', verifyLogin, async (req, res) => {
+router.put("/changePassword", verifyLogin, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        const token = req.headers['authorization']?.split(' ')[1]; // Extract the token from the Authorization header
+        const token = req.headers["authorization"]?.split(" ")[1]; // Extract the token from the Authorization header
         const decoded = jwt.verify(token, process.env.JWTSECRET); // Verify the token using the secret key
 
-        const userId =  decoded.id; // Assuming `id` is included in JWT payload
+        const userId = decoded.id; // Assuming `id` is included in JWT payload
 
         // Fetch user from the database
         const user = await prisma.utilisateur.findUnique({
-            where: { id: userId }
+            where: { id: userId },
         });
         if (!user) {
             return res.status(404).send({ msg: "Utilisateur non trouvé" });
         }
         // Check if current password matches
-        const isPasswordValid = bcrypt.compareSync(currentPassword, user.password);
+        const isPasswordValid = bcrypt.compareSync(
+            currentPassword,
+            user.password
+        );
         if (!isPasswordValid) {
-            return res.status(400).send({ msg: "Mot de passe actuel incorrect" });
+            return res
+                .status(400)
+                .send({ msg: "Mot de passe actuel incorrect" });
         }
         const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
         // Update the user's password in the database
         await prisma.utilisateur.update({
             where: { id: userId },
-            data: { password: hashedNewPassword }
+            data: { password: hashedNewPassword },
         });
-        return res.status(200).send({ msg: "Mot de passe mis à jour avec succès" });
+        return res
+            .status(200)
+            .send({ msg: "Mot de passe mis à jour avec succès" });
     } catch (error) {
-        console.error('Erreur lors de la mise à jour du mot de passe:', error);
+        console.error("Erreur lors de la mise à jour du mot de passe:", error);
         res.status(500).send({ msg: "Erreur du serveur" });
     }
 });
 
+// admin can update user's password
+router.put("/updatePassword/:id", verifyAdmin, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const user = await prisma.utilisateur.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            return res.status(404).send({ msg: "Utilisateur non trouvé" });
+        }
+        const { newPassword } = req.body;
+        const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
+        // Update the user's password in the database
+        await prisma.utilisateur.update({
+            where: { id: userId },
+            data: { password: hashedNewPassword },
+        });
+        return res
+            .status(200)
+            .send({ msg: "Mot de passe mis à jour avec succès" });
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour du mot de passe:", error);
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
 
+// Update only admin , use wajdi's(heritage) approach
+// champ role reste
+router.put("/updateUser/:id", verifyAdmin, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const user = await prisma.utilisateur.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            return res.status(404).send({ msg: "Utilisateur non trouvé" });
+        }
+        const {
+            nom,
+            prenom,
+            email,
+            password,
+            gouvernorat,
+            ville,
+            localite,
+            codePostal,
+            adresse,
+            telephone1,
+            telephone2,
+            codeTVA,
+            cin,
+            role,
+            nomShop,
+        } = req.body;
+        // Update the user's information in the Utilisateur table
+        const hashedNewPassword = bcrypt.hashSync(password, 10);
+        await prisma.utilisateur.update({
+            where: { id: userId },
+            data: {
+                nom,
+                prenom,
+                email,
+                password: hashedNewPassword,
+                telephone1,
+                telephone2,
+                codeTVA,
+                cin,
+                role,
+            },
+        });
+        // Update associated records based on the user's role
+        if (role === "CLIENT") {
+            await prisma.client.update({
+                where: { idClient: userId },
+                data: {
+                    nomShop,
+                    gouvernorat,
+                    ville,
+                    localite,
+                    codePostal,
+                    adresse,
+                },
+            });
+        } else if (role === "LIVREUR") {
+            await prisma.livreur.update({
+                where: { idLivreur: userId },
+                data: {
+                    gouvernorat,
+                    ville,
+                    localite,
+                    codePostal,
+                    adresse,
+                },
+            });
+        }
+        res.status(200).send({ msg: "Utilisateur mis à jour avec succès" });
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
 
+// get all users ,check for the role to know which table to query
+router.get("/allUsers", verifyAdmin, async (req, res) => {
+    try {
+        let allUsers = [];
 
+        // Get all users
+        const users = await prisma.utilisateur.findMany();
+        console.log(users);
 
+        // Use Promise.all to handle asynchronous mapping
+        allUsers = await Promise.all(
+            users.map(async (user) => {
+                if (user.role === "CLIENT") {
+                    const client = await prisma.client.findUnique({
+                        where: { idClient: user.id },
+                    });
+                    return { ...user, ...client };
+                } else if (user.role === "LIVREUR") {
+                    const livreur = await prisma.livreur.findUnique({
+                        where: { idLivreur: user.id },
+                    });
+                    return { ...user, ...livreur };
+                } else if (user.role === "ADMIN") {
+                    const admin = await prisma.admin.findUnique({
+                        where: { idAdmin: user.id },
+                    });
+                    return { ...user, ...admin };
+                }
+                return user; // Return the user if no matching role is found
+            })
+        );
 
+        res.status(200).send(allUsers);
+    } catch (error) {
+        console.error(
+            "Erreur lors de la récupération des utilisateurs:",
+            error
+        );
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
 
 // Export the router module
 module.exports = router;
-
 
 
 
