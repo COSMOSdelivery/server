@@ -274,45 +274,65 @@ router.put("/updateUser/:id", verifyAdmin, async (req, res) => {
             nomShop,
         } = req.body;
         // Update the user's information in the Utilisateur table
-        const hashedNewPassword = bcrypt.hashSync(password, 10);
-        await prisma.utilisateur.update({
-            where: { id: userId },
-            data: {
-                nom,
-                prenom,
-                email,
-                password: hashedNewPassword,
-                telephone1,
-                telephone2,
-                codeTVA,
-                cin,
-                role,
-            },
-        });
-        // Update associated records based on the user's role
-        if (role === "CLIENT") {
-            await prisma.client.update({
-                where: { idClient: userId },
+        if(password)
+        {
+            const hashedNewPassword = bcrypt.hashSync(password, 10);
+            await prisma.utilisateur.update({
+                where: { id: userId },
                 data: {
-                    nomShop,
-                    gouvernorat,
-                    ville,
-                    localite,
-                    codePostal,
-                    adresse,
+                    nom,
+                    prenom,
+                    email,
+                    password: hashedNewPassword,
+                    telephone1,
+                    telephone2,
+                    codeTVA,
+                    cin,
                 },
             });
-        } else if (role === "LIVREUR") {
-            await prisma.livreur.update({
-                where: { idLivreur: userId },
+        }
+        else
+        {
+            await prisma.utilisateur.update({
+                where: { id: userId },
                 data: {
-                    gouvernorat,
-                    ville,
-                    localite,
-                    codePostal,
-                    adresse,
+                    nom,
+                    prenom,
+                    email,
+                    telephone1,
+                    telephone2,
+                    codeTVA,
+                    cin,
                 },
             });
+
+        }
+        if(role) {
+            // Update associated records based on the user's role
+            if (role === "CLIENT") {
+                await prisma.client.update({
+                    where: {idClient: userId},
+                    data: {
+                        nomShop,
+                        gouvernorat,
+                        ville,
+                        localite,
+                        codePostal,
+                        adresse,
+                    },
+                });
+            } else if (role === "LIVREUR") {
+                await prisma.livreur.update({
+                    where: {idLivreur: userId},
+                    data: {
+                        gouvernorat,
+                        ville,
+                        localite,
+                        codePostal,
+                        adresse,
+                    },
+                });
+            }
         }
         res.status(200).send({ msg: "Utilisateur mis à jour avec succès" });
     } catch (error) {
