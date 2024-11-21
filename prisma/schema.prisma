@@ -11,6 +11,7 @@ enum Role {
   CLIENT
   ADMIN
   LIVREUR
+  SERVICECLIENT
 }
 
 enum ModePaiement {
@@ -35,26 +36,32 @@ enum EtatCommande {
 }
 
 model Utilisateur {
-  id                Int      @id @default(autoincrement())
+  id                Int            @id @default(autoincrement())
   nom               String
   prenom            String
-  email             String   @unique
+  email             String         @unique
   password          String
   telephone1        String
   telephone2        String?
   codeTVA           String
-  cin               String   @unique
+  cin               String         @unique
   role              Role
-  dateInscription   DateTime @default(now())
-  derniereMiseAJour DateTime @updatedAt
+  dateInscription   DateTime       @default(now())
+  derniereMiseAJour DateTime       @updatedAt
   admin             Admin?
   client            Client?
   livreur           Livreur?
+  serviceclient     Serviceclient?
 }
 
 model Admin {
   idAdmin     Int         @id @default(autoincrement())
   utilisateur Utilisateur @relation(fields: [idAdmin], references: [id], onDelete: Cascade)
+}
+
+model Serviceclient {
+  idServiceclient Int         @id @default(autoincrement())
+  utilisateur     Utilisateur @relation(fields: [idServiceclient], references: [id], onDelete: Cascade)
 }
 
 model Client {

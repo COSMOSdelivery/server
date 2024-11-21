@@ -41,6 +41,7 @@ router.post("/login", async (req, res) => {
 
             // Send response with user email and generated token
             return res.status(200).send({
+                id: user.id,
                 nom: user.nom,
                 prenom: user.prenom,
                 email: user.email,
@@ -122,6 +123,12 @@ router.post("/creatAccount", verifyAdmin, async (req, res) => {
                     idAdmin: user.id,
                 },
             });
+        } else if (role === "SERVICECLIENT") {
+            await prisma.serviceclient.create({
+                data: {
+                    idServiceclient: user.id,
+                },
+            });
         } else {
             return res.status(400).send({ msg: "Invalid role specified!" });
         }
@@ -164,7 +171,12 @@ router.delete("/deleteUser/:id", verifyAdmin, async (req, res) => {
             await prisma.admin.deleteMany({
                 where: { idAdmin: userId },
             });
+        } else if (user.role === "SERVICECLIENT") {
+            await prisma.serviceclient.deleteMany({
+                where: { idServiceclient: userId },
+            });
         }
+
         // Delete the user from the Utilisateur table
         await prisma.utilisateur.delete({
             where: { id: userId },
@@ -368,6 +380,11 @@ router.get("/allUsers", verifyAdmin, async (req, res) => {
                         where: { idAdmin: user.id },
                     });
                     return { ...user, ...admin };
+                } else if (user.role === "SERVICECLIENT") {
+                    const serviceclient = await prisma.serviceclient.findUnique({
+                        where: { idServiceclient: user.id },
+                    });
+                    return { ...user, ...serviceclient };
                 }
                 return user; // Return the user if no matching role is found
             })
@@ -383,6 +400,130 @@ router.get("/allUsers", verifyAdmin, async (req, res) => {
     }
 });
 
+
+// get all clients ,check for the role to know which table to query
+router.get("/allClients", verifyAdmin, async (req, res) => {
+    try {
+        let allUsers = [];
+
+        const users = await prisma.utilisateur.findMany({
+            where: {client: {
+                    isNot: null,
+                },},
+        });
+        console.log(users);
+        allUsers = await Promise.all(
+            users.map(async (user) => {
+                if (user.role === "CLIENT") {
+                    const client = await prisma.client.findUnique({
+                        where: { idClient: user.id },
+                    });
+                    return { ...user, ...client };
+                }
+            })
+        );
+        res.status(200).send(allUsers);
+    } catch (error) {
+        console.error(
+            "Erreur lors de la récupération des clients:",
+            error
+        );
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
+
+
+// get all Livreurs ,check for the role to know which table to query
+router.get("/allLivreurs", verifyAdmin, async (req, res) => {
+    try {
+        let allUsers = [];
+
+        const users = await prisma.utilisateur.findMany({
+            where: {livreur: {
+                    isNot: null,
+                },},
+        });
+        console.log(users);
+        allUsers = await Promise.all(
+            users.map(async (user) => {
+                if (user.role === "LIVREUR") {
+                    const livreur = await prisma.livreur.findUnique({
+                        where: { idLivreur: user.id },
+                    });
+                    return { ...user, ...livreur };
+                }
+            })
+        );
+        res.status(200).send(allUsers);
+    } catch (error) {
+        console.error(
+            "Erreur lors de la récupération des livreurs:",
+            error
+        );
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
+// get all ServiceClients ,check for the role to know which table to query
+router.get("/allServiceClients", verifyAdmin, async (req, res) => {
+    try {
+        let allUsers = [];
+
+        const users = await prisma.utilisateur.findMany({
+            where: {serviceclient: {
+                    isNot: null,
+                },},
+        });
+        console.log(users);
+        allUsers = await Promise.all(
+            users.map(async (user) => {
+                if (user.role === "SERVICECLIENT") {
+                    const serviceclient = await prisma.serviceclient.findUnique({
+                        where: { idServiceclient: user.id },
+                    });
+                    return { ...user, ...serviceclient };
+                }
+            })
+        );
+        res.status(200).send(allUsers);
+    } catch (error) {
+        console.error(
+            "Erreur lors de la récupération des serviceclients:",
+            error
+        );
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
+
+// get all Admins ,check for the role to know which table to query
+router.get("/allAdmins", verifyAdmin, async (req, res) => {
+    try {
+        let allUsers = [];
+
+        const users = await prisma.utilisateur.findMany({
+            where: {admin: {
+                    isNot: null,
+                },},
+        });
+        console.log(users);
+        allUsers = await Promise.all(
+            users.map(async (user) => {
+                if (user.role === "ADMIN") {
+                    const admin = await prisma.admin.findUnique({
+                        where: { idAdmin: user.id },
+                    });
+                    return { ...user, ...admin };
+                }
+            })
+        );
+        res.status(200).send(allUsers);
+    } catch (error) {
+        console.error(
+            "Erreur lors de la récupération des admins:",
+            error
+        );
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
 // Export the router module
 module.exports = router;
 
