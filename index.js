@@ -6,6 +6,8 @@ const bodyParser = require('body-parser')
 const morgan = require('morgan')
 const authJwt = require("./src/middleware/expressjwt");
 const usersRouter = require("./src/routes/user")
+const commandHistory = require("./src/routes/historiqueCommande")
+
 const app = express()
 const api = process.env.API_URL
 
@@ -24,7 +26,9 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 
 //ROUTES
-app.use(`${api}/users`,usersRouter)
+app.use(`${api}/users`, usersRouter)
+app.use(`${api}/cHistory`,commandHistory)
+
 
 app.listen(3000,()=>{
   console.log("Serveur lancé sur http://localhost:3000");
