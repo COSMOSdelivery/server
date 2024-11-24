@@ -89,30 +89,32 @@ model Livreur {
 }
 
 model Commande {
-  code_a_barre           Int                  @id @default(autoincrement())
-  nom_Prenom_prioritaire String
-  gouvernorat            String
-  ville                  String
-  localite               String
-  codePostal             String
-  adresse                String
-  telephone1             String
-  telephone2             String?
-  designation            String
-  prix                   Float
-  nb_article             Int
-  nb_colis               Int
-  etat                   EtatCommande
-  mode_paiement          ModePaiement
-  possible_ouvrir        Boolean
-  possible_echange       Boolean
-  remarque               String?
-  dateAjout              DateTime             @default(now())
-  derniereMiseAJour      DateTime             @updatedAt
-  id_client              Int
-  client                 Client               @relation(fields: [id_client], references: [idClient])
-  Historique             HistoriqueCommande[] // Relation avec l'historique des commandes
-  feedbacks              FeedbackCommande[] // Relation avec les feedbacks de la commande
+  code_a_barre       Int                  @id @default(autoincrement())
+  nom_prioritaire    String
+  prenom_prioritaire String
+  gouvernorat        String
+  ville              String
+  localite           String
+  codePostal         String
+  adresse            String
+  telephone1         String
+  telephone2         String?
+  designation        String
+  prix               Float
+  nb_article         Int
+  nb_colis           Int
+  etat               EtatCommande
+  mode_paiement      ModePaiement
+  possible_ouvrir    Boolean
+  possible_echange   Boolean
+  remarque           String?
+  id_livreur         Int?
+  dateAjout          DateTime             @default(now())
+  derniereMiseAJour  DateTime             @updatedAt
+  id_client          Int
+  client             Client               @relation(fields: [id_client], references: [idClient])
+  Historique         HistoriqueCommande[] // Relation avec l'historique des commandes
+  feedbacks          FeedbackCommande[] // Relation avec les feedbacks de la commande
 }
 
 model HistoriqueCommande {
@@ -121,9 +123,9 @@ model HistoriqueCommande {
   etat        EtatCommande // État à ce moment de l'historique
   commentaire String?
   id_commande Int
-  id_livreur  Int
+  id_livreur  Int?
   commande    Commande     @relation(fields: [id_commande], references: [code_a_barre], onDelete: Cascade)
-  livreur     Livreur      @relation(fields: [id_livreur], references: [idLivreur], onDelete: Cascade)
+  livreur     Livreur?     @relation(fields: [id_livreur], references: [idLivreur], onDelete: Cascade)
 
   @@unique([id_commande, id_livreur, date]) // Permet de tracer les changements d'état avec timestamp
 }

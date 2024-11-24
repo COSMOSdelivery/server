@@ -7,6 +7,8 @@ const morgan = require('morgan')
 const authJwt = require("./src/middleware/expressjwt");
 const usersRouter = require("./src/routes/user")
 const feedbackRouter = require("./src/routes/feedback")
+const commandRouter = require("./src/routes/command")
+const commandHistory = require("./src/routes/historiqueCommande")
 
 const app = express()
 const api = process.env.API_URL
@@ -19,15 +21,16 @@ const api = process.env.API_URL
 
 app.use(bodyParser.json())
 app.use(morgan('tiny'))
-//app.use(authJwt())
-
-// Ajouter Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 
 //ROUTES
 app.use(`${api}/users`,usersRouter)
 app.use(`${api}/feedback`, feedbackRouter);
+app.use(`${api}/command`, commandRouter);
+app.use(`${api}/commandHistory`,commandHistory)
+
+// Ajouter Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.listen(3000,()=>{
   console.log("Serveur lancé sur http://localhost:3000");
