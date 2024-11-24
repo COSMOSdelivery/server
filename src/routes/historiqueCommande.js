@@ -47,6 +47,44 @@ router.get('getCommandHistoryById-admin', verifyAdmin, async (req, res) => {
     }
 });
 
+// Client service can retrieve all commands history just he has to provide the commannd's id
+// Request: GET /getCommandHistory request.body = {commandId: Int}+ Bearer token
+router.get('getCommandHistory-service', verifyServiceclient, async (req, res) => { 
+    const { commandId } = req.body;
+    const command = await prisma.commande.findUnique({
+        where: {
+            id: commandId
+        }
+    });
+    if (command) {
+        const history = await prisma.historiqueCommande.findMany({
+            where: {
+                commandId: commandId
+            }
+        });
+     res.json([command,history]);
+    } else {
+        res.json({ error: "Command not found" });
+    }
+} )
+
+// Get specific command history by id
+// Request: GET /getCommandHistoryById-service request.body = {commandHistoryId: Int}+ Bearer token
+router.get('getCommandHistoryById-service', verifyServiceclient,  async (req, res) => { 
+    const { commandHistoryId } = req.body;
+    const history = await prisma.historiqueCommande.findUnique({
+        where: {
+            id: commandHistoryId
+        }
+    });
+    if (history) {
+        res.json(history);
+    } else {
+        res.json({ error: "Command history not found" });
+    }
+});
+
+
 
 // Get all commands history for client 
 // Request: GET /getCommandHistory-client request.body = {clientId: Int,commandId:Int}+ Bearer token
