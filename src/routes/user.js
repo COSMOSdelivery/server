@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt"); // For password hashing and comparison
 const jwt = require("jsonwebtoken"); // For generating JSON Web Tokens
-const { PrismaClient, Prisma } = require("@prisma/client"); // Prisma ORM client
+const { PrismaClient } = require("@prisma/client"); // Prisma ORM client
 
 const prisma = new PrismaClient();
 //login

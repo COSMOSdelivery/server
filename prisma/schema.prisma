@@ -65,15 +65,16 @@ model Serviceclient {
 }
 
 model Client {
-  idClient    Int         @id @default(autoincrement())
-  utilisateur Utilisateur @relation(fields: [idClient], references: [id], onDelete: Cascade)
-  nomShop     String
-  gouvernorat String
-  ville       String
-  localite    String
-  codePostal  String
-  adresse     String
-  Commandes   Commande[] // Relation avec plusieurs commandes
+  idClient         Int                @id @default(autoincrement())
+  utilisateur      Utilisateur        @relation(fields: [idClient], references: [id], onDelete: Cascade)
+  nomShop          String
+  gouvernorat      String
+  ville            String
+  localite         String
+  codePostal       String
+  adresse          String
+  Commandes        Commande[] // Relation avec plusieurs commandes
+  FeedbackCommande FeedbackCommande[]
 }
 
 model Livreur {
@@ -111,6 +112,7 @@ model Commande {
   id_client              Int
   client                 Client               @relation(fields: [id_client], references: [idClient])
   Historique             HistoriqueCommande[] // Relation avec l'historique des commandes
+  feedbacks              FeedbackCommande[] // Relation avec les feedbacks de la commande
 }
 
 model HistoriqueCommande {
@@ -124,4 +126,15 @@ model HistoriqueCommande {
   livreur     Livreur      @relation(fields: [id_livreur], references: [idLivreur], onDelete: Cascade)
 
   @@unique([id_commande, id_livreur, date]) // Permet de tracer les changements d'état avec timestamp
+}
+
+model FeedbackCommande {
+  id          Int      @id @default(autoincrement())
+  titre       String
+  commentaire String
+  dateAjout   DateTime @default(now())
+  id_commande Int
+  commande    Commande @relation(fields: [id_commande], references: [code_a_barre])
+  id_client   Int
+  client      Client   @relation(fields: [id_client], references: [idClient])
 }
