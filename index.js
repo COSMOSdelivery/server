@@ -9,6 +9,7 @@ const usersRouter = require("./src/routes/user")
 const feedbackRouter = require("./src/routes/feedback")
 const commandRouter = require("./src/routes/command")
 const commandHistory = require("./src/routes/historiqueCommande")
+const cors = require('cors');
 
 const app = express()
 const api = process.env.API_URL
@@ -17,11 +18,9 @@ const api = process.env.API_URL
 // TODO: update paths
 
 
-
-
 app.use(bodyParser.json())
 app.use(morgan('tiny'))
-
+app.use(cors());
 
 //ROUTES
 app.use(`${api}/users`,usersRouter)
