@@ -109,6 +109,12 @@
                 },
                 "nomShop": {
                   "example": "any"
+                },
+                "fraisLivraison": {
+                  "example": "any"
+                },
+                "fraisRetour": {
+                  "example": "any"
                 }
               }
             }
@@ -665,9 +671,6 @@
                 "nb_article": {
                   "example": "any"
                 },
-                "nb_colis": {
-                  "example": "any"
-                },
                 "mode_paiement": {
                   "example": "any"
                 },
@@ -678,6 +681,12 @@
                   "example": "any"
                 },
                 "remarque": {
+                  "example": "any"
+                },
+                "code_a_barre_echange": {
+                  "example": "any"
+                },
+                "nb_article_echange": {
                   "example": "any"
                 }
               }
@@ -796,9 +805,6 @@
                 "nb_article": {
                   "example": "any"
                 },
-                "nb_colis": {
-                  "example": "any"
-                },
                 "mode_paiement": {
                   "example": "any"
                 },
@@ -809,6 +815,12 @@
                   "example": "any"
                 },
                 "remarque": {
+                  "example": "any"
+                },
+                "code_a_barre_echange": {
+                  "example": "any"
+                },
+                "nb_article_echange": {
                   "example": "any"
                 }
               }

@@ -18,9 +18,9 @@ router.post('/',verifyClient,async (req,res)=>{
 
     // get the necessary fields to create a command record
     // a command should always be in "pending" state
-    const {nom_prioritaire, prenom_prioritaire,gouvernorat,ville,localite,codePostal,adresse,telephone1,telephone2,designation,prix,nb_article,nb_colis,mode_paiement,possible_ouvrir,possible_echange,remarque} = req.body
+    const {nom_prioritaire, prenom_prioritaire,gouvernorat,ville,localite,codePostal,adresse,telephone1,telephone2,designation,prix,nb_article,mode_paiement,possible_ouvrir,possible_echange,remarque,code_a_barre_echange,nb_article_echange} = req.body
     // Validation des champs requis
-        if (!nom_prioritaire || !prenom_prioritaire || !gouvernorat || !ville || !localite || !codePostal || !adresse || !telephone1 || !designation || !prix || !nb_article || !nb_colis || !mode_paiement) {
+        if (!nom_prioritaire || !prenom_prioritaire || !gouvernorat || !ville || !localite || !codePostal || !adresse || !telephone1 || !designation || !prix || !nb_article || !mode_paiement) {
             return res.status(400).json({ msg: "Champs obligatoires manquants" });
         }
     const commande = await prisma.commande.create({
@@ -37,12 +37,14 @@ router.post('/',verifyClient,async (req,res)=>{
         designation,
         prix,
         nb_article,
-        nb_colis,
         etat:"EN_ATTENTE",
         mode_paiement,
         possible_ouvrir,
         possible_echange,
         remarque,
+          est_imprimer:false,
+          code_a_barre_echange,
+          nb_article_echange,
         id_client:req.userId,
       }
     })
@@ -108,7 +110,7 @@ router.delete('/:codeBarre',verifyClient,async (req,res)=>{
 router.put('/:codeBarre',verifyClient,async (req,res)=>{
 
 
-    const {nom_prioritaire,prenom_prioritaire,gouvernorat,ville,localite,codePostal,adresse,telephone1,telephone2,designation,prix,nb_article,nb_colis,mode_paiement,possible_ouvrir,possible_echange,remarque} = req.body
+    const {nom_prioritaire,prenom_prioritaire,gouvernorat,ville,localite,codePostal,adresse,telephone1,telephone2,designation,prix,nb_article,mode_paiement,possible_ouvrir,possible_echange,remarque,          code_a_barre_echange, nb_article_echange} = req.body
     try {
     const updateCommand = await prisma.commande.update({
         where:{
@@ -127,11 +129,12 @@ router.put('/:codeBarre',verifyClient,async (req,res)=>{
             designation,
             prix,
             nb_article,
-            nb_colis,
             mode_paiement,
             possible_ouvrir,
             possible_echange,
             remarque,
+            code_a_barre_echange,
+            nb_article_echange
         }
     })
         // Vérification si la commande a été mise à jour

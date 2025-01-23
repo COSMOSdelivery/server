@@ -8,7 +8,9 @@ const authJwt = require("./src/middleware/expressjwt");
 const usersRouter = require("./src/routes/user")
 const feedbackRouter = require("./src/routes/feedback")
 const commandRouter = require("./src/routes/command")
-const commandHistory = require("./src/routes/historiqueCommande")
+const commandHistoryRouter = require("./src/routes/historiqueCommande")
+const manifestRouter = require("./src/routes/manifest")
+
 const cors = require('cors');
 
 const app = express()
@@ -26,7 +28,10 @@ app.use(cors());
 app.use(`${api}/users`,usersRouter)
 app.use(`${api}/feedback`, feedbackRouter);
 app.use(`${api}/command`, commandRouter);
-app.use(`${api}/commandHistory`,commandHistory)
+app.use(`${api}/commandHistory`,commandHistoryRouter)
+app.use(`${api}/manifest`,manifestRouter)
+
+
 
 // Ajouter Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));

@@ -22,17 +22,25 @@ enum ModePaiement {
 
 enum EtatCommande {
   EN_ATTENTE
+  A_ENLEVER
   AU_DEPOT
+  RETOUR_DEPOT
   EN_COURS
   A_VERIFIER
   LIVRES
-  LIVRES_PAYES
+  LIVRES_PAYE
   ECHANGE
-  REMBOURSES
+  REMBOURSE
   RETOUR_DEFINITIF
   RETOUR_INTER_AGENCE
   RETOUR_EXPEDITEURS
-  RETOUR_RECU_PAYES
+  RETOUR_RECU
+}
+
+enum EtatFeedback {
+  EN_COURS
+  RESOLU
+  EN_ATTENTE
 }
 
 model Utilisateur {
@@ -73,48 +81,53 @@ model Client {
   localite         String
   codePostal       String
   adresse          String
+  fraisLivraison   Float              @default(7) // default well be deleted
+  fraisRetour      Float              @default(7) // default well be deleted
   Commandes        Commande[] // Relation avec plusieurs commandes
   FeedbackCommande FeedbackCommande[]
+  Manifeste        Manifeste[]
+  //Paiement         Paiement[]
 }
 
 model Livreur {
   idLivreur   Int                  @id @default(autoincrement())
   utilisateur Utilisateur          @relation(fields: [idLivreur], references: [id], onDelete: Cascade)
   gouvernorat String
-  ville       String
-  localite    String
-  codePostal  String
-  adresse     String
   Historique  HistoriqueCommande[] // Relation avec l'historique des commandes
 }
 
 model Commande {
-  code_a_barre       Int                  @id @default(autoincrement())
-  nom_prioritaire    String
-  prenom_prioritaire String
-  gouvernorat        String
-  ville              String
-  localite           String
-  codePostal         String
-  adresse            String
-  telephone1         String
-  telephone2         String?
-  designation        String
-  prix               Float
-  nb_article         Int
-  nb_colis           Int
-  etat               EtatCommande
-  mode_paiement      ModePaiement
-  possible_ouvrir    Boolean
-  possible_echange   Boolean
-  remarque           String?
-  id_livreur         Int?
-  dateAjout          DateTime             @default(now())
-  derniereMiseAJour  DateTime             @updatedAt
-  id_client          Int
-  client             Client               @relation(fields: [id_client], references: [idClient])
-  Historique         HistoriqueCommande[] // Relation avec l'historique des commandes
-  feedbacks          FeedbackCommande[] // Relation avec les feedbacks de la commande
+  code_a_barre         Int                  @id @default(autoincrement())
+  nom_prioritaire      String
+  prenom_prioritaire   String
+  gouvernorat          String
+  ville                String
+  localite             String
+  codePostal           String
+  adresse              String
+  telephone1           String
+  telephone2           String?
+  designation          String
+  prix                 Float
+  nb_article           Int
+  etat                 EtatCommande
+  mode_paiement        ModePaiement
+  possible_ouvrir      Boolean
+  possible_echange     Boolean
+  code_a_barre_echange Int? // seulement dans le cas d'echange
+  nb_article_echange   Int? // seulement dans le cas d'echange
+  remarque             String?
+  est_imprimer         Boolean              @default(false)
+  id_livreur           Int?
+  dateAjout            DateTime             @default(now())
+  derniereMiseAJour    DateTime             @updatedAt
+  id_client            Int
+  client               Client               @relation(fields: [id_client], references: [idClient])
+  Historique           HistoriqueCommande[] // Relation avec l'historique des commandes
+  feedbacks            FeedbackCommande[] // Relation avec les feedbacks de la commande
+  manifesteId          Int?
+  Manifeste            Manifeste?           @relation(fields: [manifesteId], references: [id])
+  //Paiement             Paiement[]
 }
 
 model HistoriqueCommande {
@@ -135,8 +148,28 @@ model FeedbackCommande {
   titre       String
   commentaire String
   dateAjout   DateTime @default(now())
+  //etatFeedback EtatFeedback @default(EN_ATTENTE)          maybe ++
   id_commande Int
   commande    Commande @relation(fields: [id_commande], references: [code_a_barre])
   id_client   Int
   client      Client   @relation(fields: [id_client], references: [idClient])
 }
+
+model Manifeste {
+  id           Int        @id @default(autoincrement())
+  dateCreation DateTime   @default(now())
+  id_client    Int
+  client       Client     @relation(fields: [id_client], references: [idClient])
+  commandes    Commande[]
+  estImprime   Boolean    @default(false)
+}
+
+//model Paiement {
+//  id           Int       @id @default(autoincrement())
+//  datePaiement DateTime  @default(now())
+//  montant      Float
+//  id_client    Int
+//  client       Client    @relation(fields: [id_client], references: [idClient])
+//  id_commande  Int?
+//  commande     Commande? @relation(fields: [id_commande], references: [code_a_barre])
+//}

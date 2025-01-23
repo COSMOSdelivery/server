@@ -78,6 +78,8 @@ router.post("/creatAccount", verifyAdmin, async (req, res) => {
             cin,
             role,
             nomShop,
+            fraisLivraison,
+            fraisRetour
         } = req.body;
         const user = await prisma.utilisateur.create({
             data: {
@@ -104,17 +106,15 @@ router.post("/creatAccount", verifyAdmin, async (req, res) => {
                     localite,
                     codePostal,
                     adresse,
+                    fraisLivraison,
+                    fraisRetour
                 },
             });
         } else if (role === "LIVREUR") {
             await prisma.livreur.create({
                 data: {
                     idLivreur: user.id,
-                    gouvernorat,
-                    ville,
-                    localite,
-                    codePostal,
-                    adresse,
+                    gouvernorat
                 },
             });
         } else if (role === "ADMIN") {
@@ -284,6 +284,8 @@ router.put("/updateUser/:id", verifyAdmin, async (req, res) => {
             cin,
             role,
             nomShop,
+            fraisLivraison,
+            fraisRetour
         } = req.body;
         // Update the user's information in the Utilisateur table
         if(password)
@@ -331,17 +333,15 @@ router.put("/updateUser/:id", verifyAdmin, async (req, res) => {
                         localite,
                         codePostal,
                         adresse,
+                        fraisLivraison,
+                        fraisRetour
                     },
                 });
             } else if (role === "LIVREUR") {
                 await prisma.livreur.update({
                     where: {idLivreur: userId},
                     data: {
-                        gouvernorat,
-                        ville,
-                        localite,
-                        codePostal,
-                        adresse,
+                        gouvernorat
                     },
                 });
             }
