@@ -23,6 +23,7 @@ enum ModePaiement {
 enum EtatCommande {
   EN_ATTENTE
   A_ENLEVER
+  ENLEVE
   AU_DEPOT
   RETOUR_DEPOT
   EN_COURS
@@ -30,11 +31,10 @@ enum EtatCommande {
   LIVRES
   LIVRES_PAYE
   ECHANGE
-  REMBOURSE
   RETOUR_DEFINITIF
   RETOUR_INTER_AGENCE
   RETOUR_EXPEDITEURS
-  RETOUR_RECU
+  RETOUR_RECU_PAYE
 }
 
 enum EtatFeedback {
