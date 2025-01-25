@@ -10,6 +10,8 @@ const feedbackRouter = require("./src/routes/feedback")
 const commandRouter = require("./src/routes/command")
 const commandHistoryRouter = require("./src/routes/historiqueCommande")
 const manifestRouter = require("./src/routes/manifest")
+const clientStatRouter = require("./src/routes/clientStat")
+
 
 const cors = require('cors');
 
@@ -31,6 +33,7 @@ app.use(`${api}/command`, commandRouter);
 app.use(`${api}/commandHistory`,commandHistoryRouter)
 app.use(`${api}/manifest`,manifestRouter)
 
+app.use(`${api}/client/command/stat`,clientStatRouter)
 
 
 // Ajouter Swagger UI
