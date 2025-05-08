@@ -60,6 +60,9 @@ model Utilisateur {
   client            Client?
   livreur           Livreur?
   serviceclient     Serviceclient?
+  resetPasswordOtp     String?  // Add this line for the OTP field
+  resetPasswordOtpExpiry DateTime?
+  imageUrl String?  
 }
 
 model Admin {
@@ -94,6 +97,7 @@ model Livreur {
   utilisateur Utilisateur          @relation(fields: [idLivreur], references: [id], onDelete: Cascade)
   gouvernorat String
   Historique  HistoriqueCommande[] // Relation avec l'historique des commandes
+  commandes   Commande[] // Relation with Commande
 }
 
 model Commande {
@@ -123,6 +127,7 @@ model Commande {
   derniereMiseAJour    DateTime             @updatedAt
   id_client            Int
   client               Client               @relation(fields: [id_client], references: [idClient])
+    livreur              Livreur?             @relation(fields: [id_livreur], references: [idLivreur]) // Add this line
   Historique           HistoriqueCommande[] // Relation avec l'historique des commandes
   feedbacks            FeedbackCommande[] // Relation avec les feedbacks de la commande
   manifesteId          Int?

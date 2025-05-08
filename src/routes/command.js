@@ -1,5 +1,5 @@
 // Import necessary modules
-const { verifyAdmin,verifyClient, verifyLogin, verifyLivreur} = require("../middleware/authMiddleware"); // Importer le middleware
+const { verifyAdmin,verifyClient,verifyLivreur,verifyClientOrServiceClientOrAdmin,verifyServiceclient} = require("../middleware/authMiddleware"); // Importer le middleware
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt'); // For password hashing and comparison
@@ -20,7 +20,7 @@ router.post('/',verifyClient,async (req,res)=>{
     // a command should always be in "pending" state
     const {nom_prioritaire, prenom_prioritaire,gouvernorat,ville,localite,codePostal,adresse,telephone1,telephone2,designation,prix,nb_article,mode_paiement,possible_ouvrir,possible_echange,remarque,code_a_barre_echange,nb_article_echange} = req.body
     // Validation des champs requis
-        if (!nom_prioritaire || !prenom_prioritaire || !gouvernorat || !ville || !localite || !codePostal || !adresse || !telephone1 || !designation || !prix || !nb_article || !mode_paiement) {
+        if (!nom_prioritaire || !prenom_prioritaire || !gouvernorat || !ville || !localite || !codePostal || !adresse || !telephone1 || !designation || !prix || !nb_article ) {
             return res.status(400).json({ msg: "Champs obligatoires manquants" });
         }
     const commande = await prisma.commande.create({
@@ -162,11 +162,18 @@ router.put('/:codeBarre',verifyClient,async (req,res)=>{
 })
 
 
-router.get('/clientAllCommands', verifyClient, async (req, res) => {
+router.get('/clientAllCommands',verifyClientOrServiceClientOrAdmin, async (req, res) => {
     try {
         // Récupération des commandes de l'utilisateur connecté
         const commands = await prisma.commande.findMany({
-            where: { id_client: req.body.id_client }
+            where: { id_client: req.body.id_client },
+            include: {
+                livreur: {
+                    include: {
+                        utilisateur: true
+                    }
+                }
+            }
         });
         res.status(200).send(commands); // Réponse avec les commandes
     } catch (error) {
@@ -175,12 +182,16 @@ router.get('/clientAllCommands', verifyClient, async (req, res) => {
     }
 });
 
-// getAllCommands-livreur
-router.get('/livreurAllCommands',verifyLivreur, async (req, res) => {
-    console.log(req.body.id_livreur)
+router.get('/livreurAllCommands/:id_livreur', verifyLivreur, async (req, res) => {
+    const id_livreur = parseInt(req.params.id_livreur);
+    const { region } = req.query; // Récupérer le paramètre de région
+
     try {
         const commands = await prisma.commande.findMany({
-            where: { id_livreur: req.body.id_livreur }
+            where: { 
+                id_livreur: id_livreur,
+                gouvernorat: region ? region : undefined // Filtrer par région si elle est fournie
+            }
         });
         res.status(200).send(commands);
     } catch (error) {
@@ -188,7 +199,6 @@ router.get('/livreurAllCommands',verifyLivreur, async (req, res) => {
         res.status(500).send({ msg: "Erreur du serveur" });
     }
 });
-
 // getAllCommands- serviceClient/admin
 router.get('/allCommands', verifyAdmin, async (req, res) => {
     try {
@@ -202,7 +212,7 @@ router.get('/allCommands', verifyAdmin, async (req, res) => {
 
 // setAdeleveryPerson ---------------serviceClient----------------
 // request body: {id_commande:*,id_livreur:*} + Bearar token
-router.post('/setAdeleveryPerson',verifyAdmin, async (req, res) => {
+router.post('/setaDeleveryPerson',verifyServiceclient, async (req, res) => {
     try {
         const { code_a_barre, id_livreur } = req.body;
         const updateCommand = await prisma.commande.update({
@@ -210,7 +220,7 @@ router.post('/setAdeleveryPerson',verifyAdmin, async (req, res) => {
             code_a_barre:parseInt(code_a_barre)
         },
         data: {id_livreur:parseInt(id_livreur),
-        etat:"EN_COURS"}
+        etat:"A_ENLEVER"}
     })
     // Vérification si la commande a été mise à jour
     if (!updateCommand) {
@@ -244,7 +254,7 @@ router.post('/setAdeleveryPerson',verifyAdmin, async (req, res) => {
 // setCommandStatus by deelevry person
 // state : must be in enum EtatCommande:
 // request body: {id_livreur,id_commande:*,state:*} + Bearar token
-const EtatCommande = {
+const EtatCommandeLivreur = {
     EN_ATTENTE: 'EN_ATTENTE',
     AU_DEPOT: 'AU_DEPOT',
     EN_COURS: 'EN_COURS',
@@ -256,9 +266,24 @@ const EtatCommande = {
     RETOUR_DEFINITIF: 'RETOUR_DEFINITIF',
     RETOUR_INTER_AGENCE: 'RETOUR_INTER_AGENCE',
     RETOUR_EXPEDITEURS: 'RETOUR_EXPEDITEURS',
-    RETOUR_RECU_PAYES: 'RETOUR_RECU_PAYES',
+    RETOUR_RECU_PAYE: 'RETOUR_RECU_PAYE',
 };
-
+const EtatCommande = {
+    EN_ATTENTE: 'EN_ATTENTE',
+    A_ENLEVER: 'A_ENLEVER',
+    ENLEVE: 'ENLEVE',
+    AU_DEPOT: 'AU_DEPOT',
+    RETOUR_DEPOT: 'RETOUR_DEPOT',
+    EN_COURS: 'EN_COURS',
+    A_VERIFIER: 'A_VERIFIER',
+    LIVRES: 'LIVRES',
+    LIVRES_PAYES: 'LIVRES_PAYES',
+    ECHANGE: 'ECHANGE',
+    RETOUR_DEFINITIF: 'RETOUR_DEFINITIF',
+    RETOUR_INTER_AGENCE: 'RETOUR_INTER_AGENCE',
+    RETOUR_EXPEDITEURS: 'RETOUR_EXPEDITEURS',
+    RETOUR_RECU_PAYE: 'RETOUR_RECU_PAYE',
+};
 router.post('/setCommandStatus',verifyLivreur, async (req, res) => {
     try {
         const { id_livreur,code_a_barre,commentaire, state } = req.body;
@@ -298,7 +323,64 @@ router.post('/setCommandStatus',verifyLivreur, async (req, res) => {
     }
 });
 
+router.post('/modifyStatus', verifyServiceclient, async (req, res) => {
+    try {
+        const { code_a_barre, state, commentaire } = req.body;
 
+        // Validate input
+        if (!code_a_barre || !state) {
+            return res.status(400).json({ msg: "Champs obligatoires manquants: code_a_barre et state" });
+        }
 
+        if (isNaN(parseInt(code_a_barre))) {
+            return res.status(400).json({ msg: "Le code à barre doit être un nombre valide" });
+        }
 
+        // Check if the state is valid
+        if (!Object.values(EtatCommande).includes(state)) {
+            return res.status(400).json({ msg: `État invalide: ${state}` });
+        }
+
+        // Find the command
+        const command = await prisma.commande.findUnique({
+            where: { code_a_barre: parseInt(code_a_barre) }
+        });
+
+        if (!command) {
+            return res.status(404).json({ msg: "Commande non trouvée" });
+        }
+
+        // Use a transaction to ensure atomicity
+        const [updatedCommand, historiqueCommande] = await prisma.$transaction([
+            prisma.commande.update({
+                where: { code_a_barre: parseInt(code_a_barre) },
+                data: { etat: state }
+            }),
+            prisma.historiqueCommande.create({
+                data: {
+                    etat: state,
+                    commentaire: commentaire || "Statut modifié",
+                    commande: {
+                        connect: { code_a_barre: parseInt(code_a_barre) }
+                    },
+                    livreur: command.id_livreur ? { connect: { idLivreur: command.id_livreur } } : undefined
+                }
+            })
+        ]);
+
+        // Log the status change
+        console.log(`Statut de la commande ${code_a_barre} modifié à ${state} par l'utilisateur ${req.user.id}`);
+
+        // Return success response
+        return res.status(200).json({
+            msg: "Statut de la commande mis à jour avec succès",
+            command: updatedCommand,
+            history: historiqueCommande
+        });
+
+    } catch (error) {
+        console.error("Erreur lors de la modification du statut : ", error);
+        return res.status(500).json({ msg: "Erreur interne du serveur" });
+    }
+});
 module.exports = router;
