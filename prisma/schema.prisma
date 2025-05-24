@@ -88,6 +88,7 @@ model Client {
   fraisRetour      Float              @default(7) // default well be deleted
   Commandes        Commande[] // Relation avec plusieurs commandes
   FeedbackCommande FeedbackCommande[]
+  paiements Paiement[]
   Manifeste        Manifeste[]
   //Paiement         Paiement[]
 }
@@ -99,7 +100,12 @@ model Livreur {
   Historique  HistoriqueCommande[] // Relation avec l'historique des commandes
   commandes   Commande[] // Relation with Commande
 }
-
+enum StatutPaiement {
+  NON_PAYE
+  PAYE
+  EN_ATTENTE
+  REFUSE
+}
 model Commande {
   code_a_barre         Int                  @id @default(autoincrement())
   nom_prioritaire      String
@@ -116,6 +122,7 @@ model Commande {
   nb_article           Int
   etat                 EtatCommande
   mode_paiement        ModePaiement
+  statutPaiement     StatutPaiement @default(NON_PAYE)
   possible_ouvrir      Boolean
   possible_echange     Boolean
   code_a_barre_echange Int? // seulement dans le cas d'echange
@@ -126,6 +133,7 @@ model Commande {
   dateAjout            DateTime             @default(now())
   derniereMiseAJour    DateTime             @updatedAt
   id_client            Int
+    Paiements Paiement[]
   client               Client               @relation(fields: [id_client], references: [idClient])
     livreur              Livreur?             @relation(fields: [id_livreur], references: [idLivreur]) // Add this line
   Historique           HistoriqueCommande[] // Relation avec l'historique des commandes
@@ -169,12 +177,14 @@ model Manifeste {
   estImprime   Boolean    @default(false)
 }
 
-//model Paiement {
-//  id           Int       @id @default(autoincrement())
-//  datePaiement DateTime  @default(now())
-//  montant      Float
-//  id_client    Int
-//  client       Client    @relation(fields: [id_client], references: [idClient])
-//  id_commande  Int?
-//  commande     Commande? @relation(fields: [id_commande], references: [code_a_barre])
-//}
+model Paiement {
+  id           Int       @id @default(autoincrement())
+  datePaiement DateTime  @default(now())
+  montant      Float
+  mode         ModePaiement // déjà défini comme enum
+  statut       StatutPaiement @default(EN_ATTENTE) // REFUSE / PAYE / NON_PAYE
+  id_client    Int
+  client       Client    @relation(fields: [id_client], references: [idClient])
+  id_commande  Int?
+  commande     Commande? @relation(fields: [id_commande], references: [code_a_barre])
+}

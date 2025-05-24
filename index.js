@@ -34,15 +34,18 @@ app.use(`${api}/command`, commandRouter);
 app.use(`${api}/commandHistory`, commandHistoryRouter);
 app.use(`${api}/manifest`, manifestRouter);
 app.use(`${api}/stat`, clientStatRouter);
+const paiementRouter = require('./src/routes/paiement');
+app.use(`${api}/paiements`, paiementRouter);
+
 
 // Ajouter Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // Add this to your Express server setup
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.listen(3000, () => {
-  console.log("Serveur lancé sur http://localhost:3000");
-  console.log("Documentation disponible sur http://localhost:3000/api-docs");
+app.listen(3001, () => {
+  console.log("Serveur lancé sur http://localhost:3001");
+  console.log("Documentation disponible sur http://localhost:3001/api-docs");
 });
 
 initializeDatabase()
