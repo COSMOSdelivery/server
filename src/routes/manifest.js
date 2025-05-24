@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { PrismaClient } = require("@prisma/client");
 const jwt = require("jsonwebtoken");
-const { verifyClient, verifyLogin, verifyServiceclient } = require("../middleware/authMiddleware");
+const { verifyClient, verifyLogin, verifyServiceclient,verifyAdminOrServiceClient,verifyClientOrServiceClientOrAdmin } = require("../middleware/authMiddleware");
 const prisma = new PrismaClient();
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
@@ -264,7 +264,7 @@ router.get("/", verifyClient, async (req, res) => {
     }
 });
 // Route pour récupérer tous les manifestes (pour l'admin)
-router.get("/getAllManifests", verifyServiceclient, async (req, res) => {
+router.get("/getAllManifests", verifyAdminOrServiceClient, async (req, res) => {
     try {
         // Récupérer tous les manifestes
         const manifestes = await prisma.manifeste.findMany({
@@ -349,7 +349,7 @@ router.get("/:id", verifyClient, async (req, res) => {
 });
 
 // Route pour imprimer un manifeste en PDF
-router.get("/:id/print", verifyClient, async (req, res) => {
+router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) => {
     const { id } = req.params;
     const token = req.headers['authorization']?.split(' ')[1];
     let decoded;
@@ -357,6 +357,7 @@ router.get("/:id/print", verifyClient, async (req, res) => {
     try {
         decoded = jwt.verify(token, process.env.JWTSECRET);
         const id_client = decoded.id;
+        console.log("Utilisateur:", { id: id_client, role: decoded.role });
 
         // Récupérer le manifeste avec les informations du client
         const manifeste = await prisma.manifeste.findUnique({
@@ -372,7 +373,7 @@ router.get("/:id/print", verifyClient, async (req, res) => {
         }
 
         // Vérification des autorisations (client ou admin)
-        if (manifeste.id_client !== id_client && decoded.role !== 'admin') {
+        if (manifeste.id_client !== id_client && decoded.role !== 'ADMIN' && decoded.role !== 'SERVICECLIENT') {
             return res.status(403).json({ error: "Accès non autorisé" });
         }
 
@@ -509,7 +510,7 @@ router.get("/:id/print", verifyClient, async (req, res) => {
     }
 });
 // Route pour imprimer un bordereau de manifeste
-router.get("/:id/bordereau", verifyClient, async (req, res) => {
+router.get("/:id/bordereau", verifyClientOrServiceClientOrAdmin, async (req, res) => {
     const { id } = req.params;
     const token = req.headers['authorization']?.split(' ')[1];
     let decoded;
@@ -532,7 +533,7 @@ router.get("/:id/bordereau", verifyClient, async (req, res) => {
         }
 
         // Vérification des autorisations (client ou admin)
-        if (manifeste.id_client !== id_client && decoded.role !== 'admin') {
+        if (manifeste.id_client !== id_client && decoded.role !== 'ADMIN' && decoded.role !== 'SERVICECLIENT') {
             return res.status(403).json({ error: "Accès non autorisé" });
         }
 

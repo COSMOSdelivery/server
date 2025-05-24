@@ -444,6 +444,10 @@ router.get("/allClients", verifyAdminOrServiceClient, async (req, res) => {
             where: {client: {
                     isNot: null,
                 },},
+
+                include: {
+                    client: true, // 👈 ceci inclut le champ gouvernorat directement
+                  },
         });
         console.log(users);
         allUsers = await Promise.all(
@@ -476,6 +480,9 @@ router.get("/allLivreurs",verifyAdminOrServiceClient, async (req, res) => {
             where: {livreur: {
                     isNot: null,
                 },},
+                include: {
+                    livreur: true, //ceci inclut le champ gouvernorat directement
+                  },
         });
         console.log(users);
         allUsers = await Promise.all(

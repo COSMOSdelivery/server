@@ -1,14 +1,18 @@
 // Import necessary modules
-const { verifyClient, verifyLogin } = require("../middleware/authMiddleware"); // Importer le middleware
+const { verifyClient, verifyLogin, verifyAdminOrServiceClient} = require("../middleware/authMiddleware"); // Importer le middleware
 const express = require("express");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client"); // Prisma ORM client
 const prisma = new PrismaClient();
 
 //le client creer une feedback
-router.post('',verifyClient,  async (req, res) => {
-    const { commentaire,titre, id_commande, id_client } = req.body;
-    if (!commentaire || !titre || !id_commande || !id_client) {
+router.post('/',verifyClient,  async (req, res) => {
+    const {titre, commentaire, id_commande} = req.body;
+    const token = req.headers['authorization']?.split(' ')[1]; // Extrait le token de l'entête Authorization
+    const decoded = jwt.verify(token, process.env.JWTSECRET);
+    const id_client= decoded.id;
+    if (!commentaire || !titre || !id_commande) {
         return res.status(400).json({ error: 'Tous les champs sont requis.' });
     }
 
@@ -29,14 +33,43 @@ router.post('',verifyClient,  async (req, res) => {
 
 
 // Obtenir tous les feedbacks
-router.get('', verifyLogin, async (req, res) => {
+router.get('/', verifyClient, async (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    let decoded;
     try {
-        const feedbacks = await prisma.feedbackCommande.findMany();
+        decoded = jwt.verify(token, process.env.JWTSECRET);
+        const id_client = decoded.id;
+        console.log("Récupération des manifestes pour le client:", id_client); // Log pour déboguer
+
+        const feedbacks = await prisma.feedbackCommande.findMany({
+            where: { id_client },
+        });
         res.status(200).json(feedbacks);
     } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des feedbacks.' });
     }
 });
+
+router.get("/getAllFeedbacks", verifyAdminOrServiceClient, async (req, res) => {
+    try {
+        const feedbacks = await prisma.feedbackCommande.findMany({
+            include:{
+                 client: {
+                  select: {
+                  nomShop: true,  // Retrieve fields from the Client model
+                  gouvernorat: true,
+                  ville: true,
+                  localite: true,
+                  codePostal: true,
+                  adresse: true,}}
+            }
+        });
+        res.status(200).json(feedbacks);
+    } catch (error) {
+        res.status(500).json({ error: 'Erreur lors de la récupération des feedbacks.' });
+    }
+});
+
 
 // Obtenir tous les feedbacks pour une commande donnée
 router.get('/commande/:idCommande',verifyLogin, async (req, res) => {
