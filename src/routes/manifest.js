@@ -347,14 +347,17 @@ router.get("/:id", verifyClient, async (req, res) => {
         res.status(500).json({ error: "Erreur lors de la récupération du manifeste." });
     }
 });
-
-// Route pour imprimer un manifeste en PDF
+// Route pour imprimer un manifeste en PDF avec design moderne
 router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) => {
     const { id } = req.params;
     const token = req.headers['authorization']?.split(' ')[1];
     let decoded;
 
     try {
+        if (!token) {
+            return res.status(401).json({ error: "Token d'authentification manquant." });
+        }
+
         decoded = jwt.verify(token, process.env.JWTSECRET);
         const id_client = decoded.id;
         console.log("Utilisateur:", { id: id_client, role: decoded.role });
@@ -364,7 +367,11 @@ router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) =>
             where: { id: parseInt(id) },
             include: {
                 commandes: true,
-                client: true,
+                client: {
+                    include: {
+                        utilisateur: true,
+                    },
+                },
             },
         });
 
@@ -377,11 +384,21 @@ router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) =>
             return res.status(403).json({ error: "Accès non autorisé" });
         }
 
-        // Créer un document PDF
-        const doc = new PDFDocument({ margin: 50 });
+        // Créer un document PDF (A4: 595pt x 842pt)
+        const doc = new PDFDocument({ 
+            margin: 50, 
+            size: "A4",
+            info: {
+                Title: `Manifeste ${id}`,
+                Author: 'Cosmos Dashboard',
+                Subject: 'Manifeste de livraison',
+                Creator: 'Cosmos Dashboard',
+                Producer: 'Cosmos Dashboard'
+            }
+        });
 
         // Définir le nom du fichier
-        const filename = `manifest_${id}_${Date.now()}.pdf`;
+        const filename = `manifeste_${id}_${Date.now()}.pdf`;
         const tempDir = path.join(__dirname, '../temp');
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
@@ -392,89 +409,240 @@ router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) =>
         const stream = fs.createWriteStream(filePath);
         doc.pipe(stream);
 
-        // Ajouter en-tête
-        doc.fontSize(20).text('MANIFESTE DE LIVRAISON', { align: 'center' });
-        doc.moveDown();
+        // Définir les couleurs et styles
+        const colors = {
+            primary: "#2563EB",     // Bleu moderne
+            secondary: "#64748B",   // Gris ardoise
+            accent: "#06B6D4",      // Cyan
+            success: "#10B981",     // Vert
+            warning: "#F59E0B",     // Orange
+            danger: "#EF4444",      // Rouge
+            light: "#F8FAFC",       // Gris très clair
+            dark: "#1E293B",        // Gris très foncé
+            border: "#E2E8F0"       // Gris bordure
+        };
 
-        // Informations du manifeste
-        doc.fontSize(12);
-        doc.text(`Manifeste N°: ${manifeste.id}`);
-        doc.text(`Date de création: ${new Date(manifeste.dateCreation).toLocaleString('fr-FR')}`);
-        doc.moveDown();
+        const fonts = {
+            regular: "Helvetica",
+            bold: "Helvetica-Bold",
+            italic: "Helvetica-Oblique"
+        };
 
-        // Informations du client
-        doc.fontSize(14).text('Informations du client', { underline: true });
-        doc.fontSize(12);
-        doc.text(`Nom: ${manifeste.client.nom} ${manifeste.client.prenom}`);
-        doc.text(`Email: ${manifeste.client.email}`);
-        doc.text(`Téléphone: ${manifeste.client.telephone}`);
-        doc.text(`Adresse: ${manifeste.client.adresse || 'Non spécifiée'}`);
-        doc.moveDown(2);
+        // === EN-TÊTE ===
+        // Fond d'en-tête avec dégradé simulé
+        doc.rect(0, 0, 595, 120).fill(colors.primary);
+        doc.rect(0, 100, 595, 20).fill(colors.accent);
 
-        // Tableau des commandes
-        doc.fontSize(14).text('Liste des commandes', { underline: true });
-        doc.moveDown();
+        // Logo ou nom de l'entreprise
+        const logoPath = path.join(__dirname, "../public/logo.png");
+        if (fs.existsSync(logoPath)) {
+            try {
+                doc.image(logoPath, 50, 25, { width: 80, height: 60 });
+            } catch (logoError) {
+                console.warn("Erreur lors du chargement du logo:", logoError);
+                // Fallback avec texte stylé
+                doc.font(fonts.bold).fontSize(24).fillColor("white");
+                doc.text("COSMOS", 50, 40);
+                doc.font(fonts.regular).fontSize(12);
+                doc.text("Dashboard", 50, 70);
+            }
+        } else {
+            // Fallback avec texte stylé
+            doc.font(fonts.bold).fontSize(24).fillColor("white");
+            doc.text("COSMOS", 50, 40);
+            doc.font(fonts.regular).fontSize(12);
+            doc.text("Dashboard", 50, 70);
+        }
 
-        // En-têtes du tableau
-        const tableTop = doc.y;
-        const tableHeaders = ['Code', 'Désignation', 'Prix', 'État'];
-        const colWidths = [80, 240, 80, 80];
-        let x = 50;
+        // Informations d'en-tête (droite)
+        doc.font(fonts.bold).fontSize(20).fillColor("white");
+        doc.text("MANIFESTE DE LIVRAISON", 150, 35, { align: "center", width: 295 });
+        
+        doc.font(fonts.regular).fontSize(11).fillColor("white");
+        doc.text(`N° ${manifeste.id}`, 350, 60, { align: "right", width: 195 });
+        doc.text(`${new Date(manifeste.dateCreation).toLocaleDateString("fr-FR")}`, 350, 75, { align: "right", width: 195 });
 
-        doc.fontSize(11);
-        tableHeaders.forEach((header, i) => {
-            doc.text(header, x, tableTop, { width: colWidths[i], align: 'left' });
-            x += colWidths[i];
+        let currentY = 150;
+
+        // === INFORMATIONS CLIENT ===
+        doc.font(fonts.bold).fontSize(14).fillColor(colors.primary);
+        doc.text("INFORMATIONS CLIENT", 50, currentY);
+        currentY += 25;
+
+        // Cadre pour les informations client
+        doc.rect(50, currentY - 5, 495, 80).fill(colors.light).stroke(colors.border);
+        
+        const clientInfo = [
+            `Nom: ${manifeste.client.nom} ${manifeste.client.prenom}`,
+            `Email: ${manifeste.client.email}`,
+            `Téléphone: ${manifeste.client.telephone}`,
+            `Adresse: ${manifeste.client.adresse || 'Non spécifiée'}`
+        ];
+
+        doc.font(fonts.regular).fontSize(10).fillColor(colors.dark);
+        clientInfo.forEach((info, index) => {
+            doc.text(info, 60, currentY + 5 + (index * 15), { width: 475 });
         });
 
-        doc.moveTo(50, tableTop + 20).lineTo(480, tableTop + 20).stroke();
+        currentY += 100;
+
+        // === RÉSUMÉ DU MANIFESTE ===
+        const totalCommandes = manifeste.commandes.length;
+        const totalPrix = manifeste.commandes.reduce((sum, cmd) => sum + cmd.prix, 0);
+
+        // Boîtes de résumé
+        const boxWidth = 150;
+        const boxHeight = 60;
+        const boxSpacing = 20;
+
+        // Nombre de commandes
+        doc.rect(50, currentY, boxWidth, boxHeight).fill(colors.accent).stroke(colors.border);
+        doc.font(fonts.bold).fontSize(16).fillColor("white");
+        doc.text(totalCommandes.toString(), 50, currentY + 15, { align: "center", width: boxWidth });
+        doc.font(fonts.regular).fontSize(10);
+        doc.text("COMMANDES", 50, currentY + 35, { align: "center", width: boxWidth });
+
+        // Prix total
+        doc.rect(50 + boxWidth + boxSpacing, currentY, boxWidth, boxHeight).fill(colors.success).stroke(colors.border);
+        doc.font(fonts.bold).fontSize(14).fillColor("white");
+        doc.text(`${totalPrix.toFixed(2)} TND`, 50 + boxWidth + boxSpacing, currentY + 18, { align: "center", width: boxWidth });
+        doc.font(fonts.regular).fontSize(10);
+        doc.text("MONTANT TOTAL", 50 + boxWidth + boxSpacing, currentY + 35, { align: "center", width: boxWidth });
+
+        // Statut du manifeste
+        doc.rect(50 + (boxWidth + boxSpacing) * 2, currentY, boxWidth, boxHeight).fill(colors.primary).stroke(colors.border);
+        doc.font(fonts.bold).fontSize(12).fillColor("white");
+        doc.text("ACTIF", 50 + (boxWidth + boxSpacing) * 2, currentY + 20, { align: "center", width: boxWidth });
+        doc.font(fonts.regular).fontSize(10);
+        doc.text("STATUT", 50 + (boxWidth + boxSpacing) * 2, currentY + 35, { align: "center", width: boxWidth });
+
+        currentY += boxHeight + 40;
+
+        // === TABLEAU DES COMMANDES ===
+        doc.font(fonts.bold).fontSize(14).fillColor(colors.primary);
+        doc.text("LISTE DES COMMANDES", 50, currentY);
+        currentY += 25;
+
+        // Configuration du tableau
+        const tableConfig = {
+            x: 50,
+            y: currentY,
+            width: 495,
+            headers: ["CODE", "DÉSIGNATION", "PRIX", "ÉTAT"],
+            colWidths: [90, 220, 80, 105],
+            rowHeight: 35
+        };
+
+        // Fonction pour dessiner l'en-tête du tableau
+        function drawTableHeader(y) {
+            doc.rect(tableConfig.x, y, tableConfig.width, tableConfig.rowHeight)
+               .fill(colors.primary);
+            
+            doc.font(fonts.bold).fontSize(10).fillColor("white");
+            let xPos = tableConfig.x + 10;
+            tableConfig.headers.forEach((header, i) => {
+                doc.text(header, xPos, y + 12, {
+                    width: tableConfig.colWidths[i] - 10,
+                    align: "left"
+                });
+                xPos += tableConfig.colWidths[i];
+            });
+            return y + tableConfig.rowHeight;
+        }
+
+        // Dessiner l'en-tête initial
+        let tableY = drawTableHeader(currentY);
 
         // Données du tableau
-        let y = tableTop + 30;
-        let totalPrix = 0;
-
         manifeste.commandes.forEach((commande, index) => {
-            if (y > 700) {
-                // Nouvelle page si nécessaire
+            // Vérifier si on a besoin d'une nouvelle page
+            if (tableY > 700) {
                 doc.addPage();
-                y = 50;
-
-                // Réafficher les en-têtes sur la nouvelle page
-                x = 50;
-                tableHeaders.forEach((header, i) => {
-                    doc.text(header, x, y, { width: colWidths[i], align: 'left' });
-                    x += colWidths[i];
-                });
-
-                doc.moveTo(50, y + 20).lineTo(480, y + 20).stroke();
-                y += 30;
+                tableY = 50;
+                
+                // Redessiner l'en-tête sur la nouvelle page
+                tableY = drawTableHeader(tableY);
             }
 
-            x = 50;
-            doc.text(commande.code_a_barre, x, y, { width: colWidths[0], align: 'left' });
-            x += colWidths[0];
-            doc.text(commande.designation, x, y, { width: colWidths[1], align: 'left' });
-            x += colWidths[1];
-            doc.text(`${commande.prix} TND`, x, y, { width: colWidths[2], align: 'left' });
-            x += colWidths[2];
-            doc.text(commande.etat, x, y, { width: colWidths[3], align: 'left' });
+            // Couleur de fond alternée pour les lignes
+            const bgColor = index % 2 === 0 ? "white" : colors.light;
+            doc.rect(tableConfig.x, tableY, tableConfig.width, tableConfig.rowHeight)
+               .fill(bgColor)
+               .stroke(colors.border);
 
-            y += 20;
-            totalPrix += commande.prix;
+            // Couleur selon l'état
+            const stateColor = getStatusColor(commande.etat);
+
+            const rowData = [
+                commande.code_a_barre,
+                commande.designation,
+                `${commande.prix.toFixed(2)} TND`,
+                commande.etat
+            ];
+
+            doc.font(fonts.regular).fontSize(9).fillColor(colors.dark);
+            let xPos = tableConfig.x + 10;
+            
+            rowData.forEach((data, i) => {
+                if (i === 3) { // État - avec couleur spéciale
+                    doc.fillColor(stateColor);
+                    doc.font(fonts.bold);
+                } else {
+                    doc.fillColor(colors.dark);
+                    doc.font(fonts.regular);
+                }
+                
+                doc.text(data, xPos, tableY + 12, {
+                    width: tableConfig.colWidths[i] - 10,
+                    align: i === 2 ? "right" : "left" // Prix aligné à droite
+                });
+                xPos += tableConfig.colWidths[i];
+            });
+
+            // Lignes verticales du tableau
+            xPos = tableConfig.x;
+            tableConfig.colWidths.forEach(width => {
+                xPos += width;
+                doc.moveTo(xPos, tableY)
+                   .lineTo(xPos, tableY + tableConfig.rowHeight)
+                   .stroke(colors.border);
+            });
+
+            tableY += tableConfig.rowHeight;
         });
 
-        // Ligne de séparation avant le total
-        doc.moveTo(50, y).lineTo(480, y).stroke();
-        y += 10;
+        // === TOTAL FINAL ===
+        const totalBoxY = tableY + 20;
+        doc.rect(350, totalBoxY, 195, 50).fill(colors.primary).stroke(colors.border);
+        doc.font(fonts.bold).fontSize(14).fillColor("white");
+        doc.text("TOTAL GÉNÉRAL:", 360, totalBoxY + 12);
+        doc.font(fonts.bold).fontSize(16);
+        doc.text(`${totalPrix.toFixed(2)} TND`, 450, totalBoxY + 30, { align: "right", width: 85 });
 
-        // Total
-        doc.fontSize(12).text(`Total: ${totalPrix.toFixed(2)} TND`, 350, y, { align: 'right' });
+        // === PIED DE PAGE ===
+        const footerY = doc.page.height - 80;
+        
+        // Ligne de séparation
+        doc.moveTo(50, footerY).lineTo(545, footerY).stroke(colors.border);
+        
+        doc.font(fonts.regular).fontSize(8).fillColor(colors.secondary);
+        doc.text(`Document généré le ${new Date().toLocaleString("fr-FR")}`, 50, footerY + 15);
+        doc.text(`Manifeste N° ${manifeste.id}`, 400, footerY + 15, { align: "right", width: 145 });
 
-        // Pied de page
-        doc.fontSize(10);
-        const pageBottom = doc.page.height - 50;
-        doc.text(`Document généré le ${new Date().toLocaleString('fr-FR')}`, 50, pageBottom);
-        doc.text('Page 1 sur 1', 450, pageBottom, { align: 'right' });
+        // Fonction helper pour obtenir la couleur du statut
+        function getStatusColor(status) {
+            const statusColors = {
+                'EN_ATTENTE': colors.warning,
+                'CONFIRMEE': colors.success,
+                'EN_PREPARATION': colors.accent,
+                'PRETE': colors.primary,
+                'LIVREE': colors.success,
+                'ANNULEE': colors.danger,
+                'EXPEDIEE': colors.accent,
+                'RETOURNEE': colors.warning
+            };
+            return statusColors[status] || colors.secondary;
+        }
 
         // Finaliser le document
         doc.end();
@@ -504,12 +672,13 @@ router.get("/:id/print", verifyClientOrServiceClientOrAdmin, async (req, res) =>
             console.error('Erreur lors de la génération du PDF:', err);
             res.status(500).json({ error: "Erreur lors de la génération du PDF." });
         });
+
     } catch (error) {
         console.error('Erreur lors de la génération du manifeste PDF:', error);
         res.status(500).json({ error: "Erreur lors de la génération du manifeste PDF." });
     }
 });
-// Route pour imprimer un bordereau de manifeste
+//Route pour imprimer un bordereau de manifeste
 router.get("/:id/bordereau", verifyClientOrServiceClientOrAdmin, async (req, res) => {
     const { id } = req.params;
     const token = req.headers['authorization']?.split(' ')[1];
@@ -562,16 +731,6 @@ router.get("/:id/bordereau", verifyClientOrServiceClientOrAdmin, async (req, res
         doc.text(`Référence Manifeste: ${manifeste.id}`);
         doc.text(`Date d'émission: ${new Date().toLocaleDateString('fr-FR')}`);
         doc.moveDown();
-        
-        // Informations de l'expéditeur
-        doc.fontSize(14).text('Expéditeur', { underline: true });
-        doc.fontSize(12);
-        doc.text(`Nom: ${manifeste.client.nom} ${manifeste.client.prenom}`);
-        doc.text(`Téléphone: ${manifeste.client.telephone}`);
-        doc.text(`Email: ${manifeste.client.email}`);
-        doc.text(`Adresse: ${manifeste.client.adresse || 'Non spécifiée'}`);
-        doc.moveDown();
-        
         // Informations du transporteur
         doc.fontSize(14).text('Transporteur', { underline: true });
         doc.fontSize(12);
