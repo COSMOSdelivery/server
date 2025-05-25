@@ -449,6 +449,7 @@ router.get(
       doc.font(fonts.regular).fontSize(8).fillColor(colors.secondary);
       doc.text(`Document généré le ${new Date().toLocaleString("fr-FR")}`, 50, footerY + 15);
 
+
       // Finaliser le document
       doc.end();
 
