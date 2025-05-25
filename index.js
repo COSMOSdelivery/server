@@ -13,7 +13,7 @@ const manifestRouter = require("./src/routes/manifest");
 const clientStatRouter = require("./src/routes/stat");
 const initializeDatabase = require("./src/initbd");
 const path = require("path");
-
+const qrcodeRouter = require('./src/routes/codeaBarre');
 
 const cors = require("cors");
 const app = express();
@@ -28,6 +28,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 //ROUTES
+app.use(`${api}/barrecode`, qrcodeRouter);
 app.use(`${api}/users`, usersRouter);
 app.use(`${api}/feedback`, feedbackRouter);
 app.use(`${api}/command`, commandRouter);

@@ -107,7 +107,7 @@ enum StatutPaiement {
   REFUSE
 }
 model Commande {
-  code_a_barre         Int                  @id @default(autoincrement())
+  code_a_barre         String   @id
   nom_prioritaire      String
   prenom_prioritaire   String
   gouvernorat          String
@@ -148,7 +148,7 @@ model HistoriqueCommande {
   date        DateTime     @default(now())
   etat        EtatCommande // État à ce moment de l'historique
   commentaire String?
-  id_commande Int
+  id_commande String
   id_livreur  Int?
   commande    Commande     @relation(fields: [id_commande], references: [code_a_barre], onDelete: Cascade)
   livreur     Livreur?     @relation(fields: [id_livreur], references: [idLivreur], onDelete: Cascade)
@@ -162,7 +162,7 @@ model FeedbackCommande {
   commentaire String
   dateAjout   DateTime @default(now())
   //etatFeedback EtatFeedback @default(EN_ATTENTE)          maybe ++
-  id_commande Int
+  id_commande String
   commande    Commande @relation(fields: [id_commande], references: [code_a_barre])
   id_client   Int
   client      Client   @relation(fields: [id_client], references: [idClient])
@@ -185,6 +185,6 @@ model Paiement {
   statut       StatutPaiement @default(EN_ATTENTE) // REFUSE / PAYE / NON_PAYE
   id_client    Int
   client       Client    @relation(fields: [id_client], references: [idClient])
-  id_commande  Int?
+  id_commande  String?
   commande     Commande? @relation(fields: [id_commande], references: [code_a_barre])
 }
