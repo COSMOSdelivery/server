@@ -1,5 +1,5 @@
 // Import necessary modules
-const { verifyAdmin,verifyClient,verifyLivreur,verifyClientOrServiceClientOrAdmin,verifyServiceclient} = require("../middleware/authMiddleware"); // Importer le middleware
+const { verifyAdmin,verifyClient,verifyLivreur,verifyClientOrServiceClientOrAdmin,verifyServiceclient,verifyAdminOrServiceClient} = require("../middleware/authMiddleware"); // Importer le middleware
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt'); // For password hashing and comparison
@@ -160,9 +160,31 @@ router.put('/:codeBarre',verifyClient,async (req,res)=>{
         });
     }
 })
+router.get('/clientAllCommands',verifyClient, async (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWTSECRET);
+        const id_client = decoded.id;
+        // Récupération des commandes de l'utilisateur connecté
+        const commands = await prisma.commande.findMany({
+            where: {id_client },
+            include: {
+                livreur: {
+                    include: {
+                        utilisateur: true
+                    }
+                }
+            }
+        });
+        res.status(200).send(commands); // Réponse avec les commandes
+    } catch (error) {
+        console.error('Erreur lors de la récupération des commandes:', error);
+        res.status(500).send({ msg: "Erreur du serveur" });
+    }
+});
 
-
-router.get('/clientAllCommands',verifyClientOrServiceClientOrAdmin, async (req, res) => {
+router.get('/AllCommands',verifyAdminOrServiceClient, async (req, res) => {
     try {
         // Récupération des commandes de l'utilisateur connecté
         const commands = await prisma.commande.findMany({
@@ -202,50 +224,94 @@ router.get('/livreurAllCommands/:id_livreur', verifyLivreur, async (req, res) =>
 // getAllCommands- serviceClient/admin
 router.get('/allCommands', verifyAdmin, async (req, res) => {
     try {
-        const commands = await prisma.commande.findMany();
-        res.status(200).send(commands);
+        const commands = await prisma.commande.findMany({
+            include: {
+                livreur: {
+                    include: {
+                        utilisateur: true,
+                        gouvernorat:true
+                    }
+                    
+                }
+            }
+        });
+        return res.status(200).json(commands);
     } catch (error) {
         console.error('Erreur lors de la récupération des commandes:', error);
-        res.status(500).send({ msg: "Erreur du serveur" });
+        return res.status(500).json({ msg: "Erreur interne du serveur" });
     }
 });
 
 // setAdeleveryPerson ---------------serviceClient----------------
 // request body: {id_commande:*,id_livreur:*} + Bearar token
-router.post('/setaDeleveryPerson',verifyServiceclient, async (req, res) => {
+router.post('/setaDeleveryPerson', verifyServiceclient, async (req, res) => {
     try {
         const { code_a_barre, id_livreur } = req.body;
-        const updateCommand = await prisma.commande.update({
-        where:{
-            code_a_barre:parseInt(code_a_barre)
-        },
-        data: {id_livreur:parseInt(id_livreur),
-        etat:"A_ENLEVER"}
-    })
-    // Vérification si la commande a été mise à jour
-    if (!updateCommand) {
-        return res.status(400).json({
-            msg: "Le livreur ne peux pas être affecter"
-        });
-    }
-        const historiqueCommande = await prisma.historiqueCommande.create({
-            data:{
-                etat: "EN_COURS",
-                commentaire: "En cours de livraison",
-                commande: {
-                    connect: { code_a_barre: code_a_barre } // Utilisation de "connect" pour lier une commande existante via son code_a_barre
-                },
-                livreur: {
-                    connect: {idLivreur: id_livreur } // Utilisation de "connect" pour lier une commande existante via son code_a_barre
+
+        // Validation des entrées
+        if (!code_a_barre || !id_livreur) {
+            return res.status(400).json({ msg: "Code à barre et ID livreur sont requis" });
+        }
+
+        const codeBarreInt = parseInt(code_a_barre);
+        const idLivreurInt = parseInt(id_livreur);
+        if (isNaN(codeBarreInt) || isNaN(idLivreurInt)) {
+            return res.status(400).json({ msg: "Code à barre ou ID livreur invalide" });
+        }
+
+        // Vérifier l'existence de la commande et du livreur
+        const [commande, livreur] = await prisma.$transaction([
+            prisma.commande.findUnique({
+                where: { code_a_barre: codeBarreInt }
+            }),
+            prisma.livreur.findUnique({
+                where: { idLivreur: idLivreurInt },
+                include: { utilisateur: true }
+            })
+        ]);
+
+        if (!commande) {
+            return res.status(404).json({ msg: "Commande non trouvée" });
+        }
+        if (!livreur) {
+            return res.status(404).json({ msg: "Livreur non trouvé" });
+        }
+
+        // Vérifier la correspondance des gouvernorats
+        if (livreur.gouvernorat?.toLowerCase() !== commande.gouvernorat?.toLowerCase()) {
+            return res.status(400).json({
+                msg: `Le gouvernorat du livreur (${livreur.gouvernorat || "non spécifié"}) ne correspond pas à celui de la commande (${commande.gouvernorat || "non spécifié"})`
+            });
+        }
+
+        // Mettre à jour la commande et créer l'historique dans une transaction
+        const [updatedCommand, historiqueCommande] = await prisma.$transaction([
+            prisma.commande.update({
+                where: { code_a_barre: codeBarreInt },
+                data: {
+                    id_livreur: idLivreurInt,
+                    etat: EtatCommande.A_ENLEVER
                 }
-            }
-        })
+            }),
+            prisma.historiqueCommande.create({
+                data: {
+                    etat: EtatCommande.A_ENLEVER,
+                    commentaire: `Livreur ${livreur.utilisateur.nom} ${livreur.utilisateur.prenom} affecté`,
+                    commande: { connect: { code_a_barre: codeBarreInt } },
+                    livreur: { connect: { idLivreur: idLivreurInt } }
+                }
+            })
+        ]);
+
+        console.log("Commande mise à jour : ", updatedCommand);
         console.log("Historique créé : ", historiqueCommande);
-        return res.status(201).json({
-            msg: "Livreur affecter avec succès"
-        })
+
+        return res.status(200).json({ msg: "Livreur affecté avec succès", commande: updatedCommand });
     } catch (error) {
-        console.error("Erreur : ", error);
+        console.error("Erreur lors de l'affectation du livreur : ", error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ msg: "Commande ou livreur non trouvé" });
+        }
         return res.status(500).json({ msg: "Erreur interne du serveur" });
     }
 });

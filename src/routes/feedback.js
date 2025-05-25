@@ -53,20 +53,44 @@ router.get('/', verifyClient, async (req, res) => {
 router.get("/getAllFeedbacks", verifyAdminOrServiceClient, async (req, res) => {
     try {
         const feedbacks = await prisma.feedbackCommande.findMany({
-            include:{
-                 client: {
-                  select: {
-                  nomShop: true,  // Retrieve fields from the Client model
-                  gouvernorat: true,
-                  ville: true,
-                  localite: true,
-                  codePostal: true,
-                  adresse: true,}}
-            }
+            include: {
+                client: {
+                    select: {
+                        idClient: true, // Ensure the relation key is included
+                        nomShop: true,
+                        gouvernorat: true,
+                        ville: true,
+                        localite: true,
+                        codePostal: true,
+                        adresse: true,
+                        utilisateur: {
+                            select: {
+                                nom: true,
+                                prenom: true,
+                                email: true,
+                                telephone1: true,
+                            },
+                        },
+                    },
+                },
+                commande: {
+                    select: {
+                        code_a_barre: true,
+                        designation: true,
+                        prix: true,
+                        etat: true,
+                    },
+                },
+            },
+            orderBy: { dateAjout: "desc" },
         });
+
+        // CORRECTION: Ajouter cette ligne qui manquait
         res.status(200).json(feedbacks);
+        
     } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la récupération des feedbacks.' });
+        console.error("Erreur lors de la récupération des feedbacks:", error);
+        res.status(500).json({ error: "Erreur lors de la récupération des feedbacks." });
     }
 });
 
