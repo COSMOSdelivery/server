@@ -5,7 +5,7 @@ const {
   verifyLivreur,
   verifyClientOrServiceClientOrAdmin,
   verifyServiceclient,
-,verifyAdminOrServiceClient} = require("../middleware/authMiddleware"); // Importer le middleware
+} = require("../middleware/authMiddleware"); // Importer le middleware
 const express = require("express");
 const router = express.Router();
 const PDFDocument = require("pdfkit");
@@ -449,6 +449,7 @@ router.get(
       doc.font(fonts.regular).fontSize(8).fillColor(colors.secondary);
       doc.text(`Document généré le ${new Date().toLocaleString("fr-FR")}`, 50, footerY + 15);
 
+
       // Finaliser le document
       doc.end();
 
@@ -660,21 +661,11 @@ router.get(
 // getAllCommands- serviceClient/admin
 router.get("/allCommands", verifyAdmin, async (req, res) => {
   try {
-    const commands = await prisma.commande.findMany({
-            include: {
-                livreur: {
-                    include: {
-                        utilisateur: true,
-                        gouvernorat:true
-                    }
-                    
-                }
-            }
-        });
-    return res.status(200).json(commands);
+    const commands = await prisma.commande.findMany();
+    res.status(200).send(commands);
   } catch (error) {
     console.error("Erreur lors de la récupération des commandes:", error);
-    return res.status(500).json({ msg: "Erreur interne du serveur" });
+    res.status(500).send({ msg: "Erreur du serveur" });
   }
 });
 
