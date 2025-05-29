@@ -35,34 +35,13 @@ enum EtatCommande {
   RETOUR_INTER_AGENCE
   RETOUR_EXPEDITEURS
   RETOUR_RECU_PAYE
+ABANDONNEE
 }
 
 enum EtatFeedback {
   EN_COURS
   RESOLU
   EN_ATTENTE
-}
-
-model Utilisateur {
-  id                Int            @id @default(autoincrement())
-  nom               String
-  prenom            String
-  email             String         @unique
-  password          String
-  telephone1        String
-  telephone2        String?
-  codeTVA           String
-  cin               String         @unique
-  role              Role
-  dateInscription   DateTime       @default(now())
-  derniereMiseAJour DateTime       @updatedAt
-  admin             Admin?
-  client            Client?
-  livreur           Livreur?
-  serviceclient     Serviceclient?
-  resetPasswordOtp     String?  // Add this line for the OTP field
-  resetPasswordOtpExpiry DateTime?
-  imageUrl String?  
 }
 
 model Admin {
@@ -93,21 +72,62 @@ model Client {
   //Paiement         Paiement[]
 }
 
+
+model Utilisateur {
+  id                Int            @id @default(autoincrement())
+  nom               String
+  prenom            String
+  email             String         @unique
+  password          String
+  telephone1        String
+  telephone2        String?
+  codeTVA           String
+  cin               String         @unique
+  role              Role
+  dateInscription   DateTime       @default(now())
+  derniereMiseAJour DateTime       @updatedAt
+  admin             Admin?
+  client            Client?
+  livreur           Livreur?
+  serviceclient     Serviceclient?
+  resetPasswordOtp  String?
+  resetPasswordOtpExpiry DateTime?
+  imageUrl          String?
+  createdDebriefs   Debrief[]      @relation("DebriefCreatedBy") // Added relation field
+}
+
 model Livreur {
   idLivreur   Int                  @id @default(autoincrement())
   utilisateur Utilisateur          @relation(fields: [idLivreur], references: [id], onDelete: Cascade)
   gouvernorat String
-  Historique  HistoriqueCommande[] // Relation avec l'historique des commandes
-  commandes   Commande[] // Relation with Commande
+  Historique  HistoriqueCommande[]
+  commandes   Commande[]
+  debriefs    Debrief[]            @relation("DebriefLivreur") // Added relation field
 }
-enum StatutPaiement {
-  NON_PAYE
-  PAYE
-  EN_ATTENTE
-  REFUSE
+enum DebriefStatus {
+  OPEN
+  CLOSED
 }
+
+model Debrief {
+  id                Int            @id @default(autoincrement())
+  deliveryAgentId   Int
+  livreur           Livreur        @relation("DebriefLivreur", fields: [deliveryAgentId], references: [idLivreur], onDelete: Cascade)
+  zone              String
+status DebriefStatus @default(OPEN)
+  date              DateTime       @default(now())
+createdAt DateTime @default(now())
+  ordersDelivered   Int            @default(0)
+  ordersPlanned     Int
+  notes             String?
+  commandes         Commande[]     @relation("DebriefCommandes")
+  createdById       Int
+  createdBy         Utilisateur    @relation("DebriefCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  updatedAt         DateTime       @updatedAt
+}
+
 model Commande {
-  code_a_barre         String   @id
+  code_a_barre         String         @id
   nom_prioritaire      String
   prenom_prioritaire   String
   gouvernorat          String
@@ -122,26 +142,33 @@ model Commande {
   nb_article           Int
   etat                 EtatCommande
   mode_paiement        ModePaiement
-  statutPaiement     StatutPaiement @default(NON_PAYE)
+  statutPaiement       StatutPaiement @default(NON_PAYE)
   possible_ouvrir      Boolean
   possible_echange     Boolean
-  code_a_barre_echange Int? // seulement dans le cas d'echange
-  nb_article_echange   Int? // seulement dans le cas d'echange
+  code_a_barre_echange Int?
+  nb_article_echange   Int?
   remarque             String?
-  est_imprimer         Boolean              @default(false)
+  est_imprimer         Boolean        @default(false)
   id_livreur           Int?
-  dateAjout            DateTime             @default(now())
-  derniereMiseAJour    DateTime             @updatedAt
+  dateAjout            DateTime       @default(now())
+  derniereMiseAJour    DateTime       @updatedAt
   id_client            Int
-    Paiements Paiement[]
-  client               Client               @relation(fields: [id_client], references: [idClient])
-    livreur              Livreur?             @relation(fields: [id_livreur], references: [idLivreur]) // Add this line
-  Historique           HistoriqueCommande[] // Relation avec l'historique des commandes
-  feedbacks            FeedbackCommande[] // Relation avec les feedbacks de la commande
+  Paiements            Paiement[]
+  client               Client         @relation(fields: [id_client], references: [idClient])
+  livreur              Livreur?       @relation(fields: [id_livreur], references: [idLivreur])
+  Historique           HistoriqueCommande[]
+  feedbacks            FeedbackCommande[]
   manifesteId          Int?
-  Manifeste            Manifeste?           @relation(fields: [manifesteId], references: [id])
-  //Paiement             Paiement[]
+  debriefs             Debrief[]      @relation("DebriefCommandes")
+  Manifeste            Manifeste?     @relation(fields: [manifesteId], references: [id])
 }
+enum StatutPaiement {
+  NON_PAYE
+  PAYE
+  EN_ATTENTE
+  REFUSE
+}
+
 
 model HistoriqueCommande {
   id          Int          @id @default(autoincrement())

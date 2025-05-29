@@ -1,56 +1,52 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { PrismaClient, EtatCommande,Role} = require('@prisma/client');
-const { verifyClient, verifyLogin, verifyAdmin,verifyAdminOrServiceClient, verifyLivreur} = require("../middleware/authMiddleware");
-const jwt = require("jsonwebtoken"); // Importer le middleware
+const { PrismaClient, EtatCommande, Role } = require("@prisma/client");
+const {
+  verifyClient,
+  verifyLogin,
+  verifyAdmin,
+  verifyAdminOrServiceClient,
+  verifyLivreur,
+} = require("../middleware/authMiddleware");
+const jwt = require("jsonwebtoken");
 
 const prisma = new PrismaClient();
 
 // Route pour obtenir le nombre de commandes pour tous les états d'un client spécifique
-router.get('/client/command', async (req, res) => {
-    try {
-      // Récupérer tous les états possibles de l'enum EtatCommande
-      const etats = Object.values(EtatCommande); // Convertir l'enum en tableau
-  
-      // Obtenir le nombre de commandes pour chaque état et le sum de prix
-      const results = {};
-      let totalOrders = 0; // Variable pour stocker le total des commandes
-      let totalRevenue = 0; // Variable pour stocker le revenu total
-  
-      for (const etat of etats) {
-        const count = await prisma.commande.count({
-          where: {
-            etat: etat,
-          },
-        });
-        const sumPrix = await prisma.commande.aggregate({
-          where: {
-            etat: etat,
-          },
-          _sum: {
-            prix: true, // Calculer la somme des prix pour cet état
-          },
-        });
-  
-        results[etat] = {
-          count: count, // Nombre de commandes
-          totalPrix: sumPrix._sum.prix || 0, // Cumul des prix (0 si aucune commande)
-        };
-  
-        // Ajouter au total des commandes et au revenu total
-        totalOrders += count;
-        totalRevenue += sumPrix._sum.prix || 0;
-      }
-  
-      // Retourner les résultats avec totalOrders et totalRevenue
-      return res.status(200).json({ results, totalOrders, totalRevenue });
-    } catch (error) {
-      console.error('Erreur : ', error);
-      return res.status(500).json({ msg: 'Erreur interne du serveur' });
+router.get("/client/command", async (req, res) => {
+  try {
+    const etats = Object.values(EtatCommande);
+    const results = {};
+    let totalOrders = 0;
+    let totalRevenue = 0;
+
+    for (const etat of etats) {
+      const count = await prisma.commande.count({
+        where: { etat: etat },
+      });
+      const sumPrix = await prisma.commande.aggregate({
+        where: { etat: etat },
+        _sum: { prix: true },
+      });
+
+      results[etat] = {
+        count: count,
+        totalPrix: sumPrix._sum.prix || 0,
+      };
+
+      totalOrders += count;
+      totalRevenue += sumPrix._sum.prix || 0;
     }
+
+    return res.status(200).json({ results, totalOrders, totalRevenue });
+  } catch (error) {
+    console.error("Erreur : ", error);
+    return res.status(500).json({ msg: "Erreur interne du serveur" });
+  }
 });
-// routes/stat.js
-router.get('/statistics/:id_livreur', async (req, res) => {
+
+// Route pour les statistiques d'un livreur spécifique
+router.get("/statistics/:id_livreur", async (req, res) => {
   const livreurId = parseInt(req.params.id_livreur);
 
   try {
@@ -59,55 +55,57 @@ router.get('/statistics/:id_livreur', async (req, res) => {
     });
 
     const deliveredOrders = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'LIVRES' },
+      where: { id_livreur: livreurId, etat: "LIVRES" },
     });
 
     const pendingOrders = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'EN_ATTENTE' },
+      where: { id_livreur: livreurId, etat: "EN_ATTENTE" },
     });
 
     const inProgressOrders = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'EN_COURS' },
+      where: { id_livreur: livreurId, etat: "EN_COURS" },
     });
 
     const delayedOrders = await prisma.commande.count({
       where: {
         id_livreur: livreurId,
-        etat: 'EN_COURS',
-        dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Commandes de plus de 24 heures
+        etat: "EN_COURS",
+        dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
     });
 
     const returnedOrders = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'RETOUR_DEFINITIF' },
+      where: { id_livreur: livreurId, etat: "RETOUR_DEFINITIF" },
     });
 
     const ordersToVerify = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'A_VERIFIER' },
+      where: { id_livreur: livreurId, etat: "A_VERIFIER" },
     });
 
     const exchangeOrders = await prisma.commande.count({
-      where: { id_livreur: livreurId, etat: 'ECHANGE' },
+      where: { id_livreur: livreurId, etat: "ECHANGE" },
     });
 
     const deliveriesThisWeek = await prisma.commande.count({
       where: {
         id_livreur: livreurId,
-        etat: 'LIVRES',
+        etat: "LIVRES",
         derniereMiseAJour: {
-          gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000), // Commandes livrées cette semaine
+          gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000),
         },
       },
     });
 
-    // Calculer les revenus du livreur
     const deliveredOrdersData = await prisma.commande.findMany({
-      where: { id_livreur: livreurId, etat: 'LIVRES' },
+      where: { id_livreur: livreurId, etat: "LIVRES" },
       select: { prix: true },
     });
 
-    const totalRevenue = deliveredOrdersData.reduce((acc, order) => acc + order.prix, 0);
-    const livreurRevenue = totalRevenue * 0.1; // Supposons que le livreur gagne 10% du prix de la commande
+    const totalRevenue = deliveredOrdersData.reduce(
+      (acc, order) => acc + order.prix,
+      0
+    );
+    const livreurRevenue = totalRevenue * 0.1;
 
     res.json({
       totalOrders,
@@ -119,177 +117,194 @@ router.get('/statistics/:id_livreur', async (req, res) => {
       ordersToVerify,
       exchangeOrders,
       deliveriesThisWeek,
-      livreurRevenue, // Ajouter les revenus du livreur
+      livreurRevenue,
     });
   } catch (error) {
-    console.error('Error fetching statistics:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error fetching statistics:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get('/admin/global-statistics', async (req, res) => {
+// Route pour les statistiques globales (admin)
+router.get("/admin/global-statistics", verifyAdmin, async (req, res) => {
   try {
-    // Statistiques globales pour tous les livreurs
     const totalOrders = await prisma.commande.count();
 
     const deliveredOrders = await prisma.commande.count({
-      where: { etat: 'LIVRES' },
+      where: { etat: "LIVRES" },
     });
 
     const pendingOrders = await prisma.commande.count({
-      where: { etat: 'EN_ATTENTE' },
+      where: { etat: "EN_ATTENTE" },
     });
 
     const inProgressOrders = await prisma.commande.count({
-      where: { etat: 'EN_COURS' },
+      where: { etat: "EN_COURS" },
     });
 
     const delayedOrders = await prisma.commande.count({
       where: {
-        etat: 'EN_COURS',
-        dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Commandes de plus de 24 heures
+        etat: "EN_COURS",
+        dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
     });
 
     const returnedOrders = await prisma.commande.count({
-      where: { etat: 'RETOUR_DEFINITIF' },
+      where: { etat: "RETOUR_DEFINITIF" },
     });
 
     const ordersToVerify = await prisma.commande.count({
-      where: { etat: 'A_VERIFIER' },
+      where: { etat: "A_VERIFIER" },
     });
 
     const exchangeOrders = await prisma.commande.count({
-      where: { etat: 'ECHANGE' },
+      where: { etat: "ECHANGE" },
     });
 
     const deliveriesThisWeek = await prisma.commande.count({
       where: {
-        etat: 'LIVRES',
+        etat: "LIVRES",
         derniereMiseAJour: {
-          gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000), // Commandes livrées cette semaine
+          gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000),
         },
       },
     });
 
-    // Calculer les revenus totaux
     const deliveredOrdersData = await prisma.commande.findMany({
-      where: { etat: 'LIVRES' },
+      where: { etat: "LIVRES" },
       select: { prix: true },
     });
 
-    const totalRevenue = deliveredOrdersData.reduce((acc, order) => acc + order.prix, 0);
-    const totalLivreurRevenue = totalRevenue * 0.1; // 10% pour tous les livreurs
+    const totalRevenue = deliveredOrdersData.reduce(
+      (acc, order) => acc + (order.prix || 0),
+      0
+    );
+    const totalLivreurRevenue = totalRevenue * 0.1;
 
-    // Statistiques par livreur
     const livreurStats = await prisma.commande.groupBy({
-      by: ['id_livreur'],
-      _count: {
-        id: true,
-      },
-      _sum: {
-        prix: true,
-      },
-      where: {
-        id_livreur: { not: null }, // Exclure les commandes sans livreur assigné
-      },
+      by: ["id_livreur"],
+      _count: { _all: true },
+      _sum: { prix: true },
+      where: { id_livreur: { not: null } },
     });
 
-    // Enrichir les données des livreurs
     const detailedLivreurStats = await Promise.all(
       livreurStats.map(async (stat) => {
-        const [
-          deliveredCount,
-          pendingCount,
-          inProgressCount,
-          delayedCount,
-          returnedCount,
-          toVerifyCount,
-          exchangeCount,
-          weeklyDeliveries,
-        ] = await Promise.all([
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'LIVRES' },
-          }),
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'EN_ATTENTE' },
-          }),
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'EN_COURS' },
-          }),
-          prisma.commande.count({
-            where: {
-              id_livreur: stat.id_livreur,
-              etat: 'EN_COURS',
-              dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-            },
-          }),
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'RETOUR_DEFINITIF' },
-          }),
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'A_VERIFIER' },
-          }),
-          prisma.commande.count({
-            where: { id_livreur: stat.id_livreur, etat: 'ECHANGE' },
-          }),
-          prisma.commande.count({
-            where: {
-              id_livreur: stat.id_livreur,
-              etat: 'LIVRES',
-              derniereMiseAJour: {
-                gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000),
+        try {
+          const [
+            deliveredCount,
+            pendingCount,
+            inProgressCount,
+            delayedCount,
+            returnedCount,
+            toVerifyCount,
+            exchangeCount,
+            weeklyDeliveries,
+          ] = await Promise.all([
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "LIVRES" },
+            }),
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "EN_ATTENTE" },
+            }),
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "EN_COURS" },
+            }),
+            prisma.commande.count({
+              where: {
+                id_livreur: stat.id_livreur,
+                etat: "EN_COURS",
+                dateAjout: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
               },
+            }),
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "RETOUR_DEFINITIF" },
+            }),
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "A_VERIFIER" },
+            }),
+            prisma.commande.count({
+              where: { id_livreur: stat.id_livreur, etat: "ECHANGE" },
+            }),
+            prisma.commande.count({
+              where: {
+                id_livreur: stat.id_livreur,
+                etat: "LIVRES",
+                derniereMiseAJour: {
+                  gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000),
+                },
+              },
+            }),
+          ]);
+
+          const livreurDeliveredOrders = await prisma.commande.findMany({
+            where: { id_livreur: stat.id_livreur, etat: "LIVRES" },
+            select: { prix: true },
+          });
+
+          const livreurTotalRevenue = livreurDeliveredOrders.reduce(
+            (acc, order) => acc + (order.prix || 0),
+            0
+          );
+          const livreurRevenue = livreurTotalRevenue * 0.1;
+
+         const livreurInfo = await prisma.livreur.findUnique({
+  where: { idLivreur: stat.id_livreur },
+  select: {
+    idLivreur: true,
+    utilisateur: {
+      select: {
+        nom: true,
+        prenom: true,
+        telephone1: true,
+      },
+    },
+  },
+});
+
+          return {
+            id_livreur: stat.id_livreur,
+            livreurInfo: livreurInfo?.utilisateur || {
+              nom: "Unknown",
+              prenom: "",
+              telephone1: "",
             },
-          }),
-        ]);
-
-        // Calculer les revenus du livreur
-        const livreurDeliveredOrders = await prisma.commande.findMany({
-          where: { id_livreur: stat.id_livreur, etat: 'LIVRES' },
-          select: { prix: true },
-        });
-
-        const livreurTotalRevenue = livreurDeliveredOrders.reduce(
-          (acc, order) => acc + order.prix,
-          0
-        );
-        const livreurRevenue = livreurTotalRevenue * 0.1;
-
-        // Optionnel : récupérer les infos du livreur
-        const livreurInfo = await prisma.livreur.findUnique({
-          where: { id: stat.id_livreur },
-          select: { nom: true, prenom: true, telephone: true },
-        });
-
-        return {
-          id_livreur: stat.id_livreur,
-          livreurInfo,
-          totalOrders: stat._count.id,
-          deliveredOrders: deliveredCount,
-          pendingOrders: pendingCount,
-          inProgressOrders: inProgressCount,
-          delayedOrders: delayedCount,
-          returnedOrders: returnedCount,
-          ordersToVerify: toVerifyCount,
-          exchangeOrders: exchangeCount,
-          deliveriesThisWeek: weeklyDeliveries,
-          livreurRevenue,
-          deliveryRate: stat._count.id > 0 ? (deliveredCount / stat._count.id) * 100 : 0,
-        };
+            totalOrders: stat._count._all,
+            deliveredOrders: deliveredCount,
+            pendingOrders: pendingCount,
+            inProgressOrders: inProgressCount,
+            delayedOrders: delayedCount,
+            returnedOrders: returnedCount,
+            ordersToVerify: toVerifyCount,
+            exchangeOrders: exchangeCount,
+            deliveriesThisWeek: weeklyDeliveries,
+            livreurRevenue,
+            deliveryRate:
+              stat._count._all > 0
+                ? (deliveredCount / stat._count._all) * 100
+                : 0,
+          };
+        } catch (livreurError) {
+          console.error(
+            `Error processing livreur ${stat.id_livreur}:`,
+            livreurError
+          );
+          return null;
+        }
       })
     );
 
-    // Nombre total de livreurs actifs
-    const activeLivreurs = livreurStats.length;
+    const filteredLivreurStats = detailedLivreurStats.filter(
+      (stat) => stat !== null
+    );
 
-    // Top performers (livreurs avec le plus de livraisons)
-    const topPerformers = detailedLivreurStats
+    const activeLivreurs = filteredLivreurStats.length;
+
+    const topPerformers = filteredLivreurStats
       .sort((a, b) => b.deliveredOrders - a.deliveredOrders)
       .slice(0, 5);
 
     res.json({
-      // Statistiques globales
       global: {
         totalOrders,
         deliveredOrders,
@@ -303,35 +318,39 @@ router.get('/admin/global-statistics', async (req, res) => {
         totalRevenue,
         totalLivreurRevenue,
         activeLivreurs,
-        globalDeliveryRate: totalOrders > 0 ? (deliveredOrders / totalOrders) * 100 : 0,
+        globalDeliveryRate:
+          totalOrders > 0 ? (deliveredOrders / totalOrders) * 100 : 0,
       },
-      // Statistiques détaillées par livreur
-      livreurStats: detailedLivreurStats,
-      // Top performers
+      livreurStats: filteredLivreurStats,
       topPerformers,
     });
   } catch (error) {
-    console.error('Error fetching global statistics:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error fetching global statistics:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      message: error.message,
+      stack: error.stack,
+    });
   }
 });
 
+// Route pour les commandes quotidiennes
 router.get("/daily-orders", async (req, res) => {
   try {
-    // Query to group orders by day and count them
     const dailyOrders = await prisma.$queryRaw`
       SELECT 
         DATE("dateAjout") AS date, 
-        COUNT(*) AS total_orders
+        COUNT(*) AS total_orders,
+        SUM(prix) AS total_prix
       FROM "Commande"
       GROUP BY DATE("dateAjout")
       ORDER BY DATE("dateAjout") ASC;
     `;
 
-    // Format the response
     const formattedData = dailyOrders.map((row) => ({
-      date: row.date.toISOString().split("T")[0], // Format date as YYYY-MM-DD
-      total_orders: Number(row.total_orders), // Convert BigInt to Number
+      date: row.date.toISOString().split("T")[0],
+      total_orders: Number(row.total_orders),
+      totalPrix: Number(row.total_prix) || 0,
     }));
 
     res.status(200).json(formattedData);
@@ -341,9 +360,9 @@ router.get("/daily-orders", async (req, res) => {
   }
 });
 
+// Route pour les commandes mensuelles
 router.get("/monthly-orders", async (req, res) => {
   try {
-    // Query to group orders by month and count them
     const monthlyOrders = await prisma.$queryRaw`
       SELECT 
         TO_CHAR("dateAjout", 'YYYY-MM') AS month, 
@@ -353,10 +372,9 @@ router.get("/monthly-orders", async (req, res) => {
       ORDER BY TO_CHAR("dateAjout", 'YYYY-MM') ASC;
     `;
 
-    // Format the response
     const formattedData = monthlyOrders.map((row) => ({
-      month: row.month, // Format: YYYY-MM
-      total_orders: Number(row.total_orders), // Convert BigInt to Number
+      month: row.month,
+      total_orders: Number(row.total_orders),
     }));
 
     res.status(200).json(formattedData);
@@ -367,26 +385,28 @@ router.get("/monthly-orders", async (req, res) => {
 });
 
 // Route pour obtenir le nombre d'utilisateurs par rôle
-router.get('/usersNumbers', verifyAdminOrServiceClient, async (req, res) => {
-    try {
-        const roles = Object.values(Role);
-        const countsByRole = {};
+router.get("/usersNumbers", verifyAdminOrServiceClient, async (req, res) => {
+  try {
+    const roles = Object.values(Role);
+    const countsByRole = {};
 
-        for (const role of roles) {
-            const count = await prisma.utilisateur.count({
-                where: { role: role },
-            });
-            countsByRole[role] = count;
-        }
-
-        // Calculate total users
-        const totalUsers = Object.values(countsByRole).reduce((acc, count) => acc + count, 0);
-
-        return res.status(200).json({ countsByRole, totalUsers });
-    } catch (error) {
-        console.error("Erreur : ", error);
-        return res.status(500).json({ msg: "Erreur interne du serveur" });
+    for (const role of roles) {
+      const count = await prisma.utilisateur.count({
+        where: { role: role },
+      });
+      countsByRole[role] = count;
     }
+
+    const totalUsers = Object.values(countsByRole).reduce(
+      (acc, count) => acc + count,
+      0
+    );
+
+    return res.status(200).json({ countsByRole, totalUsers });
+  } catch (error) {
+    console.error("Erreur : ", error);
+    return res.status(500).json({ msg: "Erreur interne du serveur" });
+  }
 });
 
 module.exports = router;

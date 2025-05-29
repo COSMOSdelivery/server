@@ -1,5 +1,5 @@
 // Import necessary modules
-const { verifyAdmin, verifyLogin,verifyAdminOrServiceClient } = require("../middleware/authMiddleware"); // Importer le middleware
+const { verifyAdmin, verifyLogin,verifyAdminOrServiceClient,verifyClientOrServiceClientOrAdmin } = require("../middleware/authMiddleware"); // Importer le middleware
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt"); // For password hashing and comparison
@@ -472,7 +472,7 @@ router.get("/allClients", verifyAdminOrServiceClient, async (req, res) => {
 
 
 // get all Livreurs ,check for the role to know which table to query
-router.get("/allLivreurs",verifyAdminOrServiceClient, async (req, res) => {
+router.get("/allLivreurs",verifyClientOrServiceClientOrAdmin, async (req, res) => {
     try {
         let allUsers = [];
 

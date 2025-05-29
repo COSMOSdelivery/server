@@ -11,33 +11,37 @@ const prisma = new PrismaClient();
 
 // Admin can retrieve all commands history just he has to provide the commannd's id
 // Request: GET /getCommandHistory request.body = {commandId: Int}+ Bearer token
-router.get('/', verifyLogin,async (req, res) => {
-    try {
-        const { code_a_barre } = req.body;
+router.get('/', verifyLogin, async (req, res) => {
+  try {
+    const { code_a_barre } = req.query; // Change from req.body to req.query
+    if (!code_a_barre) {
+      return res.status(400).json({ error: "code_a_barre est requis" });
+    }
+
     const command = await prisma.commande.findUnique({
-        where: {
-            code_a_barre: code_a_barre
-        }
+      where: {
+        code_a_barre: code_a_barre,
+      },
     });
 
     if (!command) {
-        return res.status(404).json({ error: "Commande n'existe pas." });
+      return res.status(404).json({ error: "Commande n'existe pas." });
     }
 
     const history = await prisma.historiqueCommande.findMany({
-        where: {
-            id_commande: code_a_barre
-        },
-        orderBy: {
-            date: 'asc'  // Trie les historiques par date croissante (ascendant)
-        }
+      where: {
+        id_commande: code_a_barre,
+      },
+      orderBy: {
+        date: 'asc',
+      },
     });
 
     res.status(200).json({ command, history });
-    } catch (error) {
-        console.error('Erreur lors de la récupération de l\'historique de la commande:', error);
-        res.status(500).json({ msg: "Erreur interne du serveur" });
-    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'historique de la commande:', error);
+    res.status(500).json({ msg: "Erreur interne du serveur" });
+  }
 });
 
 
