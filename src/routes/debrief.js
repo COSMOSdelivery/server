@@ -167,13 +167,7 @@ router.put("/:id", verifyAdminOrServiceClient, async (req, res) => {
         return res.status(400).json({ msg: "Certaines commandes sont invalides ou non dans la zone spécifiée" });
       }
     }
-
-    // Calculate delivery rate
-    const deliveryRate =
-      ordersDelivered && ordersPlanned
-        ? (parseInt(ordersDelivered) / parseInt(ordersPlanned)) * 100
-        : debrief.deliveryRate;
-
+   
     // Update debrief
     const updatedDebrief = await prisma.debrief.update({
       where: { id: parseInt(id) },
@@ -181,7 +175,6 @@ router.put("/:id", verifyAdminOrServiceClient, async (req, res) => {
         zone,
         ordersDelivered: ordersDelivered ? parseInt(ordersDelivered) : undefined,
         ordersPlanned: ordersPlanned ? parseInt(ordersPlanned) : undefined,
-        deliveryRate,
         incidents: incidents ? parseInt(incidents) : undefined,
         fuelCost: fuelCost ? parseFloat(fuelCost) : undefined,
         kmTraveled: kmTraveled ? parseFloat(kmTraveled) : undefined,
@@ -300,22 +293,90 @@ router.get("/:id", verifyAdminOrServiceClient, async (req, res) => {
   }
 });
 // POST /api/debriefs/:id/validate - Validate a debrief (set status to CLOSED)
-router.post("/:id/validate", verifyAdminOrServiceClient, async (req, res) => {
+// POST /api/debriefs/:id/validate-orders - Update order statuses and debrief
+router.post("/:id/validate-orders", verifyAdminOrServiceClient, async (req, res) => {
   try {
+    const { id } = req.params;
+    const { orders } = req.body; // Expect orders: [{ code_a_barre, etat }]
+
+    console.log(`Validation débrief ${id} par admin/service client`);
+    console.log('Orders to validate:', orders);
+
+    // Validate debrief exists and get livreur info
     const debrief = await prisma.debrief.findUnique({
-      where: { id: parseInt(req.params.id) },
+      where: { id: parseInt(id) },
+      include: { 
+        commandes: true,
+        livreur: {
+          include: {
+            utilisateur: true
+          }
+        }
+      },
     });
+    
     if (!debrief) {
       return res.status(404).json({ msg: "Débrief non trouvé" });
     }
 
-    if (debrief.status === "CLOSED") {
-      return res.status(400).json({ msg: "Le débrief est déjà validé" });
+    console.log('Débrief trouvé:', {
+      id: debrief.id,
+      deliveryAgentId: debrief.deliveryAgentId,
+      livreurNom: debrief.livreur?.utilisateur?.nom,
+      status: debrief.status
+    });
+
+    // Validate input
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({ msg: "Orders must be an array" });
     }
 
+    // Validate all orders belong to the debrief and have valid statuses
+    const validOrderIds = debrief.commandes.map((c) => c.code_a_barre);
+    for (const order of orders) {
+      if (!validOrderIds.includes(order.code_a_barre)) {
+        return res.status(400).json({ 
+          msg: `Order ${order.code_a_barre} does not belong to this debrief` 
+        });
+      }
+      if (!["LIVRES", "RETOUR_DEFINITIF"].includes(order.etat)) {
+        return res.status(400).json({ 
+          msg: `Invalid status for order ${order.code_a_barre}` 
+        });
+      }
+    }
+
+    // Update order statuses in a transaction
+    await prisma.$transaction(
+      orders.map((order) =>
+        prisma.commande.update({
+          where: { code_a_barre: order.code_a_barre },
+          data: { etat: order.etat },
+        })
+      )
+    );
+
+    // Calculate ordersDelivered and deliveryRate
+    const updatedOrders = await prisma.commande.findMany({
+      where: { code_a_barre: { in: validOrderIds } },
+    });
+    
+    const ordersDelivered = updatedOrders.filter((o) => o.etat === "LIVRES").length;
+    const status = updatedOrders.every((o) => o.etat === "LIVRES" || o.etat === "RETOUR_DEFINITIF") ? "CLOSED" : "OPEN";
+
+    console.log('Calculated stats:', {
+      ordersDelivered,
+      newStatus: status
+    });
+
+    // Update debrief
     const updatedDebrief = await prisma.debrief.update({
-      where: { id: parseInt(req.params.id) },
-      data: { status: "CLOSED" },
+      where: { id: parseInt(id) },
+      data: {
+        ordersDelivered,
+        status,
+        updatedAt: new Date(),
+      },
       include: {
         livreur: { include: { utilisateur: true } },
         commandes: true,
@@ -323,19 +384,39 @@ router.post("/:id/validate", verifyAdminOrServiceClient, async (req, res) => {
       },
     });
 
+    // Create history entries for status changes using the debrief's deliveryAgentId
+    const historyEntries = orders.map((order) => ({
+      etat: order.etat,
+      commentaire: `Statut mis à jour via validation du débrief ${id} par admin`,
+      id_commande: order.code_a_barre,
+      id_livreur: debrief.deliveryAgentId, // Use the livreur ID from the debrief
+      date: new Date(),
+    }));
+
+    console.log('Creating history entries for livreur ID:', debrief.deliveryAgentId);
+
+    await prisma.historiqueCommande.createMany({
+      data: historyEntries,
+    });
+
+    console.log('Validation completed successfully');
+
     return res.json({
-      msg: "Débrief validé avec succès",
+      msg: "Commandes validées avec succès",
       debrief: updatedDebrief,
+      livreurId: debrief.deliveryAgentId, // Return the livreur ID for confirmation
     });
   } catch (error) {
-    console.error("Erreur lors de la validation du débrief:", error);
+    console.error("Erreur lors de la validation des commandes:", error);
     if (error.code === "P2025") {
-      return res.status(404).json({ msg: "Débrief non trouvé" });
+      return res.status(404).json({ msg: "Débrief ou commande non trouvé" });
     }
-    return res.status(500).json({ msg: "Erreur interne du serveur" });
+    return res.status(500).json({ 
+      msg: "Erreur interne du serveur",
+      error: error.message 
+    });
   }
 });
-
 // GET /api/debriefs/livreur/:id_livreur - Get debriefs for a specific livreur
 router.get("/livreur/:id_livreur", verifyLivreur, async (req, res) => {
   try {

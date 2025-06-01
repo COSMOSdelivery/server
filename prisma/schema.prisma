@@ -14,11 +14,6 @@ enum Role {
   SERVICECLIENT
 }
 
-enum ModePaiement {
-  ESPECE
-  CHEQUE
-  ESPECE_ou_CHEQUE
-}
 
 enum EtatCommande {
   EN_ATTENTE
@@ -126,50 +121,6 @@ createdAt DateTime @default(now())
   updatedAt         DateTime       @updatedAt
 }
 
-model Commande {
-  code_a_barre         String         @id
-  nom_prioritaire      String
-  prenom_prioritaire   String
-  gouvernorat          String
-  ville                String
-  localite             String
-  codePostal           String
-  adresse              String
-  telephone1           String
-  telephone2           String?
-  designation          String
-  prix                 Float
-  nb_article           Int
-  etat                 EtatCommande
-  mode_paiement        ModePaiement
-  statutPaiement       StatutPaiement @default(NON_PAYE)
-  possible_ouvrir      Boolean
-  possible_echange     Boolean
-  code_a_barre_echange Int?
-  nb_article_echange   Int?
-  remarque             String?
-  est_imprimer         Boolean        @default(false)
-  id_livreur           Int?
-  dateAjout            DateTime       @default(now())
-  derniereMiseAJour    DateTime       @updatedAt
-  id_client            Int
-  Paiements            Paiement[]
-  client               Client         @relation(fields: [id_client], references: [idClient])
-  livreur              Livreur?       @relation(fields: [id_livreur], references: [idLivreur])
-  Historique           HistoriqueCommande[]
-  feedbacks            FeedbackCommande[]
-  manifesteId          Int?
-  debriefs             Debrief[]      @relation("DebriefCommandes")
-  Manifeste            Manifeste?     @relation(fields: [manifesteId], references: [id])
-}
-enum StatutPaiement {
-  NON_PAYE
-  PAYE
-  EN_ATTENTE
-  REFUSE
-}
-
-
 model HistoriqueCommande {
   id          Int          @id @default(autoincrement())
   date        DateTime     @default(now())
@@ -203,15 +154,67 @@ model Manifeste {
   commandes    Commande[]
   estImprime   Boolean    @default(false)
 }
+enum ModePaiement {
+  ESPECE
+  CHEQUE
+  ESPECE_ou_CHEQUE
+  VIREMENT
+}
+
+enum StatutPaiement {
+  NON_PAYE
+  PAYE
+  EN_ATTENTE
+  REFUSE
+}
 
 model Paiement {
-  id           Int       @id @default(autoincrement())
-  datePaiement DateTime  @default(now())
-  montant      Float
-  mode         ModePaiement // déjà défini comme enum
-  statut       StatutPaiement @default(EN_ATTENTE) // REFUSE / PAYE / NON_PAYE
-  id_client    Int
-  client       Client    @relation(fields: [id_client], references: [idClient])
-  id_commande  String?
-  commande     Commande? @relation(fields: [id_commande], references: [code_a_barre])
+  id             Int             @id @default(autoincrement())
+  datePaiement   DateTime        @default(now())
+  montant        Float
+  mode           ModePaiement?
+  statut         StatutPaiement  @default(EN_ATTENTE)
+  id_client      Int
+  client         Client          @relation(fields: [id_client], references: [idClient], onDelete: Cascade)
+  commandes      Commande[]      @relation("PaiementCommandes")
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Commande {
+  code_a_barre         String         @id
+  nom_prioritaire      String
+  prenom_prioritaire   String
+  gouvernorat          String
+  ville                String
+  localite             String
+  codePostal           String
+  adresse              String
+  telephone1           String
+  telephone2           String?
+  designation          String
+  prix                 Float
+  nb_article           Int
+  etat                 EtatCommande
+  mode_paiement        ModePaiement
+  statutPaiement       StatutPaiement @default(NON_PAYE)
+  possible_ouvrir      Boolean
+  possible_echange     Boolean
+  code_a_barre_echange Int?
+  nb_article_echange   Int?
+  remarque             String?
+  est_imprimer         Boolean        @default(false)
+  id_livreur           Int?
+  dateAjout            DateTime       @default(now())
+  derniereMiseAJour    DateTime       @updatedAt
+  id_client            Int
+  paiements            Paiement[]     @relation("PaiementCommandes") // Updated relation
+  client               Client         @relation(fields: [id_client], references: [idClient])
+  livreur              Livreur?       @relation(fields: [id_livreur], references: [idLivreur])
+  Historique           HistoriqueCommande[]
+  feedbacks            FeedbackCommande[]
+  manifesteId          Int?
+  debriefs             Debrief[]      @relation("DebriefCommandes")
+  Manifeste            Manifeste?     @relation(fields: [manifesteId], references: [id])
 }

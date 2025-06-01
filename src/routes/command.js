@@ -418,7 +418,40 @@ router.get(
 // GET /command/allCommands
 router.get("/allCommands", verifyAdminOrServiceClient, async (req, res) => {
   try {
+    const { searchTerm, statusFilter, sortBy } = req.query;
+
+    const whereConditions = [];
+
+    // 💡 Filtrage par etat
+    if (statusFilter && statusFilter !== 'ALL') {
+      if (statusFilter === 'OPEN') {
+        whereConditions.push({ etat: { in: ['EN_ATTENTE', 'A_ENLEVER'] } });
+      } else {
+        whereConditions.push({ etat: statusFilter });
+      }
+    }
+
+    // 🔍 Filtrage par searchTerm
+    if (searchTerm) {
+      whereConditions.push({
+        OR: [
+          { code_a_barre: { contains: searchTerm, mode: 'insensitive' } },
+          { nom_prioritaire: { contains: searchTerm, mode: 'insensitive' } },
+          { prenom_prioritaire: { contains: searchTerm, mode: 'insensitive' } },
+          { adresse: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
+
+    const orderBy = sortBy
+      ? { [sortBy === 'date' ? 'dateAjout' : 'etat']: sortBy === 'date' ? 'desc' : 'asc' }
+      : { dateAjout: 'desc' };
+
     const commandes = await prisma.commande.findMany({
+      where,
+      orderBy,
       select: {
         code_a_barre: true,
         nom_prioritaire: true,
@@ -429,60 +462,75 @@ router.get("/allCommands", verifyAdminOrServiceClient, async (req, res) => {
         prix: true,
         gouvernorat: true,
         dateAjout: true,
+        nb_article: true,
       },
     });
+
     return res.status(200).json(commandes);
   } catch (error) {
-    console.error("Erreur :", error);
-    return res.status(500).json({ msg: "Erreur interne du serveur" });
+    console.error('Erreur :', error);
+    return res.status(500).json({ msg: 'Erreur interne du serveur' });
   }
 });
 
-// POST /command/setaDeleveryPerson
-router.post(
-  "/setaDeleveryPerson",
-  verifyAdminOrServiceClient,
-  async (req, res) => {
-    try {
-      const { code_a_barre, id_livreur } = req.body;
-      const updateCommand = await prisma.commande.update({
-        where: {
-          code_a_barre: code_a_barre,
-        },
-        data: {
-          id_livreur: parseInt(id_livreur),
-          etat: "A_ENLEVER",
-        },
-      });
+router.post("/setaDeleveryPerson", verifyAdminOrServiceClient, async (req, res) => {
+  try {
+    const { deliveryAgentId, zone, commandeIds, notes } = req.body;
 
-      if (!updateCommand) {
-        return res.status(400).json({
-          msg: "Le livreur ne peux pas être affecter",
-        });
-      }
-
-      const historiqueCommande = await prisma.historiqueCommande.create({
-        data: {
-          etat: "EN_COURS",
-          commentaire: "En cours de livraison",
-          commande: {
-            connect: { code_a_barre: code_a_barre },
-          },
-          livreur: {
-            connect: { idLivreur: id_livreur },
-          },
-        },
-      });
-
-      return res.status(201).json({
-        msg: "Livreur affecter avec succès",
-      });
-    } catch (error) {
-      console.error("Erreur : ", error);
-      return res.status(500).json({ msg: "Erreur interne du serveur" });
+    if (!deliveryAgentId || !zone || !commandeIds || !Array.isArray(commandeIds) || commandeIds.length === 0) {
+      return res.status(400).json({ msg: 'Champs obligatoires manquants' });
     }
+
+    const livreur = await prisma.livreur.findUnique({
+      where: { idLivreur: parseInt(deliveryAgentId) },
+      include: { utilisateur: true },
+    });
+    if (!livreur || livreur.gouvernorat.trim().toLowerCase() !== zone.trim().toLowerCase()) {
+      return res.status(400).json({ msg: 'Livreur invalide ou zone non correspondante' });
+    }
+
+    const commands = await prisma.commande.findMany({
+      where: {
+        code_a_barre: { in: commandeIds },
+        etat: 'EN_ATTENTE',
+        gouvernorat: { equals: zone, mode: 'insensitive' },
+      },
+    });
+    if (commands.length !== commandeIds.length) {
+      return res.status(400).json({ msg: 'Certaines commandes sont invalides' });
+    }
+
+    const updatedCommands = await prisma.$transaction(
+      commands.map((command) =>
+        prisma.commande.update({
+          where: { code_a_barre: command.code_a_barre },
+          data: { id_livreur: parseInt(deliveryAgentId), etat: 'A_ENLEVER' },
+        })
+      )
+    );
+
+    await prisma.$transaction(
+      commands.map((command) =>
+        prisma.historiqueCommande.create({
+          data: {
+            etat: 'A_ENLEVER',
+            commentaire: notes || 'Pickup assigné',
+            commande: { connect: { code_a_barre: command.code_a_barre } },
+            livreur: { connect: { idLivreur: parseInt(deliveryAgentId) } },
+          },
+        })
+      )
+    );
+
+    return res.status(201).json({
+      msg: 'Livreur affecté avec succès',
+      pickup: { id: updatedCommands[0].code_a_barre, deliveryAgent: livreur.utilisateur.name, zone, commandeIds },
+    });
+  } catch (error) {
+    console.error('Erreur : ', error);
+    return res.status(500).json({ msg: 'Erreur interne du serveur' });
   }
-);
+});
 
 // GET /command/:codeBarre
 router.get("/:codeBarre", async (req, res) => {
